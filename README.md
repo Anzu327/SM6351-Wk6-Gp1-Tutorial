@@ -29,7 +29,7 @@ Open `http://localhost:8000/`. Opening `index.html` directly with `file://` is n
 
 ## Classroom link
 
-Open the [SM6351 Wk6 Gp1 Tutorial](https://anzu327.github.io/SM6351-Wk6-Gp1-Tutorial/).
+Open the [SM6351 Wk6 Gp1 Tutorial](https://anzu327.github.io/sm6351/).
 
 The public GitHub Pages site is built from `main` by [the deployment workflow](.github/workflows/deploy.yml). Every student can edit and run `collapsibleTree.js` in their own browser. Their draft is stored locally in that browser and is not sent to GitHub or shared with other students. **Export .js** saves just their edited script; **Download project ZIP** saves a complete offline project containing their edits. Students should download before clearing browser storage or switching devices.
 
