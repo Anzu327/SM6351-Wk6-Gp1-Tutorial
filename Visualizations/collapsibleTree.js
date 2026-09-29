@@ -1,5 +1,5 @@
 /*
- * Group 5 · Collapsible Node-Link Tree
+ * SM6351 Wk6 Gp1 Tutorial · Collapsible Node-Link Tree
  * Run with the D3 v7 object, the supplied GDP data, and a DOM container.
  * In the teaching page these are passed by the isolated preview runner.
  * GDP shares come from the source visualization's January 2017 dataset.
