@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Collapsible GDP Tree</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main>
+      <h1>Global Economy by GDP</h1>
+      <p>January 2017 snapshot. Click a regional group to show countries and regions. Hong Kong SAR, China is listed separately for GDP, not as a country.</p>
+      <div id="chart"></div>
+    </main>
+    <!-- Local files keep this project usable without an internet connection. -->
+    <script src="../vendor/d3.min.js"></script>
+    <script src="../data/globalEconomyByGDP.js"></script>
+    <script>
+      const data = window.globalEconomyData;
+      const container = document.querySelector("#chart");
+    </script>
+    <script src="collapsibleTree.js"></script>
+  </body>
+</html>

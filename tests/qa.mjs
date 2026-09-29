@@ -1,0 +1,393 @@
+import { chromium } from "playwright";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import assert from "node:assert/strict";
+
+const source = await readFile(new URL("../Visualizations/collapsibleTree.js", import.meta.url), "utf8");
+const runFile = promisify(execFile);
+const baseUrl = process.env.LAB_URL || "http://127.0.0.1:5173/";
+const browser = await chromium.launch({ headless: true });
+const page = await browser.newPage({ viewport: { width: 1440, height: 1000 }, deviceScaleFactor: 1 });
+const errors = [];
+page.on("pageerror", (error) => errors.push(error.message));
+await page.route(/^https?:\/\/(?!127\.0\.0\.1)/, (route) => route.abort());
+await page.goto(baseUrl, { waitUntil: "networkidle" });
+await page.getByText("Preview ready", { exact: false }).waitFor();
+assert.equal(await page.locator(".pipeline-steps li").count(), 4, "beginner overview has four plain-language stages");
+assert.equal(await page.locator(".lesson").count(), 4, "walkthrough keeps four key code examples");
+assert.deepEqual(await page.locator(".lesson").evaluateAll((items) => items.map((item) => item.id)), ["lesson-hierarchy", "lesson-layout", "lesson-appearance", "lesson-collapse"]);
+assert.equal(await page.locator(".code-words").count(), 4, "every key example explains its code words");
+assert.equal(await page.locator(".code-words code:not(.code-chip-linked)").count(), 0, "every glossary term matches the displayed source");
+assert.match(await page.locator("#lesson-hierarchy .code-words").innerText(), /GDP data into tree nodes/);
+assert.match(await page.locator("#lesson-collapse .code-words").innerText(), /Draw the current visible tree again/);
+const walkthroughExcerpts = await page.locator(".lesson .code-example pre code").allTextContents();
+assert.ok(walkthroughExcerpts.every((excerpt) => source.includes(excerpt)), "every displayed excerpt matches editable source exactly");
+assert.equal(walkthroughExcerpts.some((excerpt) => excerpt.includes("join(...")), false, "no placeholder join remains");
+const layoutLesson = page.locator("#lesson-layout");
+await page.locator("#lesson-hierarchy .code-words code", { hasText: /^\.sum$/ }).hover();
+assert.equal(await page.locator("#lesson-hierarchy .snippet-token.is-highlighted").innerText(), ".sum", "glossary word highlights its source term");
+const rowGapChip = layoutLesson.locator(".beginner-explain code", { hasText: /^rowGap$/ }).first();
+const columnGapChip = layoutLesson.locator(".beginner-explain code", { hasText: /^columnGap$/ }).first();
+await rowGapChip.hover();
+assert.equal(await layoutLesson.locator(".snippet-token.is-highlighted").allTextContents().then((items) => items.join("")), "rowGap", "hover highlights the matching source token");
+await columnGapChip.hover();
+assert.equal(await layoutLesson.locator(".snippet-token.is-highlighted").allTextContents().then((items) => items.join("")), "columnGap", "moving to another chip switches the highlighted token");
+await layoutLesson.locator(".code-example-head").hover();
+assert.equal(await layoutLesson.locator(".snippet-token.is-highlighted").count(), 0, "highlight clears when the pointer leaves the chip");
+await rowGapChip.focus();
+assert.equal(await layoutLesson.locator(".snippet-token.is-highlighted").count(), 1, "keyboard focus gives the same highlight");
+await rowGapChip.evaluate((element) => element.blur());
+assert.equal(await layoutLesson.locator(".snippet-token.is-highlighted").count(), 0, "keyboard blur clears the highlight");
+for (const button of await page.locator(".lesson .locate-button").all()) {
+  await button.click();
+  await page.waitForFunction(() => {
+    const token = document.querySelector(".cm-locate-token")?.getBoundingClientRect();
+    const editor = document.querySelector("#editor")?.getBoundingClientRect();
+    return token && editor && token.top >= editor.top && token.bottom <= editor.bottom;
+  });
+  assert.equal(await page.locator(".cm-locate-token").count(), 1, "each excerpt can be located in the editor");
+}
+const frame = page.frameLocator("#preview");
+assert.equal(await frame.locator("g.node").count(), 8, "root plus seven regional groups");
+assert.equal(await frame.locator("g.node").first().locator("text").textContent(), "World 99.97% (7)", "root shows the source total and group count");
+assert.equal(await frame.locator("g.node").filter({ hasText: "Asia" }).locator("text").textContent(), "Asia 33.84% (16)", "collapsed group retains its summed share and count");
+assert.equal(await frame.locator("g.node").filter({ hasText: "Asia" }).locator("circle").getAttribute("fill"), "#f58321", "initial Asia color comes from the data");
+assert.equal(await frame.locator("g.node").filter({ hasText: "North America" }).locator("circle").getAttribute("fill"), "#ef1621", "initial North America color comes from the data");
+assert.equal(await page.locator(".traffic-lights i").count(), 3, "decorative window lights");
+assert.equal(await page.locator(".traffic-lights button").count(), 0, "window lights are not controls");
+assert.equal(await page.locator(".activity-bar").count(), 0, "unused left icon rail is removed");
+assert.ok((await page.locator(".editor-body").boundingBox()).height >= 650, "larger desktop code area");
+assert.equal(await page.locator(".workspace-help strong").innerText(), "Click a regional group");
+assert.match(await page.locator(".preview-toolbar").innerText(), /country \/ region/);
+assert.equal(await page.locator(".workspace-help").isVisible(), true, "click hint is prominent");
+const minimap = page.locator("#code-minimap");
+assert.equal(await minimap.isVisible(), true, "editable JavaScript has a visible code overview");
+assert.ok((await minimap.locator("canvas").evaluate((element) => element.width)) > 0, "code overview draws the source");
+const editorSurfaceBox = await page.locator("#editor").boundingBox();
+assert.ok(editorSurfaceBox.x + editorSurfaceBox.width <= (await minimap.boundingBox()).x + 1, "overview has its own space beside the editor");
+const sidebar = page.locator("#file-tree");
+const resizer = page.locator("#sidebar-resizer");
+const defaultSidebarWidth = (await sidebar.boundingBox()).width;
+const defaultCodeWidth = (await page.locator(".file-content").boundingBox()).width;
+assert.ok(defaultSidebarWidth >= 145 && defaultSidebarWidth <= 151, "file list starts narrower");
+await resizer.scrollIntoViewIfNeeded();
+const dividerBox = await resizer.boundingBox();
+await page.mouse.move(dividerBox.x + dividerBox.width / 2, dividerBox.y + 90);
+await page.mouse.down();
+await page.mouse.move(dividerBox.x + dividerBox.width / 2 + 70, dividerBox.y + 90, { steps: 8 });
+await page.mouse.up();
+assert.ok((await sidebar.boundingBox()).width >= defaultSidebarWidth + 60, "dragging divider grows file list");
+assert.ok((await page.locator(".file-content").boundingBox()).width <= defaultCodeWidth - 60, "code area follows divider");
+await resizer.focus();
+await page.keyboard.press("ArrowLeft");
+assert.equal(Number(await resizer.getAttribute("aria-valuenow")), Math.round((await sidebar.boundingBox()).width), "keyboard resize updates accessible value");
+const wideDividerBox = await resizer.boundingBox();
+await page.mouse.move(wideDividerBox.x + wideDividerBox.width / 2, wideDividerBox.y + 90);
+await page.mouse.down();
+await page.mouse.move(wideDividerBox.x - 500, wideDividerBox.y + 90, { steps: 8 });
+await page.mouse.up();
+assert.equal((await sidebar.boundingBox()).width, 110, "dragging stops at readable minimum");
+const narrowDividerBox = await resizer.boundingBox();
+await page.mouse.move(narrowDividerBox.x + narrowDividerBox.width / 2, narrowDividerBox.y + 90);
+await page.mouse.down();
+await page.mouse.move(narrowDividerBox.x + 38, narrowDividerBox.y + 90, { steps: 8 });
+await page.mouse.up();
+assert.equal((await sidebar.boundingBox()).width, 148, "file list can return to its default width");
+await page.locator('[data-tab-file="html"]').click();
+assert.equal(await page.locator("#editor").isVisible(), false, "file tabs also switch to read-only code");
+assert.equal(await minimap.isVisible(), false, "code overview hides for read-only files");
+await page.locator('[data-tab-file="js"]').click();
+assert.equal(await minimap.isVisible(), true, "code overview returns to the editable file");
+await page.locator('[data-file="html"]').click();
+assert.equal(await page.locator("#editor").isVisible(), false, "HTML is read only");
+assert.match(await page.locator("#readonly-code").innerText(), /\.\.\/vendor\/d3\.min\.js/);
+await page.locator('[data-file="css"]').click();
+assert.match(await page.locator("#readonly-code").innerText(), /\.node\.expandable/);
+await page.locator('[data-file="json"]').click();
+assert.match(await page.locator("#readonly-code").innerText(), /"China"/);
+await page.locator('[data-file="js"]').click();
+assert.equal(await page.locator("#editor").isVisible(), true);
+await minimap.scrollIntoViewIfNeeded();
+const minimapBox = await minimap.boundingBox();
+await page.mouse.click(minimapBox.x + minimapBox.width / 2, minimapBox.y + minimapBox.height * .85);
+const minimapClickedScroll = await page.locator(".cm-scroller").evaluate((element) => element.scrollTop);
+assert.ok(minimapClickedScroll > 500, "clicking the overview navigates toward the bottom of the code");
+assert.ok(Number(await minimap.getAttribute("aria-valuenow")) > 50, "overview reports the current scroll position");
+const overviewThumb = await page.locator(".minimap-viewport").boundingBox();
+await page.mouse.move(overviewThumb.x + overviewThumb.width / 2, overviewThumb.y + overviewThumb.height / 2);
+await page.mouse.down();
+await page.mouse.move(overviewThumb.x + overviewThumb.width / 2, minimapBox.y + minimapBox.height * .15, { steps: 8 });
+await page.mouse.up();
+assert.ok((await page.locator(".cm-scroller").evaluate((element) => element.scrollTop)) < minimapClickedScroll / 2, "dragging the overview moves the editor viewport");
+await minimap.focus();
+await page.keyboard.press("End");
+assert.ok((await page.locator(".cm-scroller").evaluate((element) => element.scrollTop)) > 500, "overview supports keyboard navigation");
+await page.keyboard.press("Home");
+assert.equal(await page.locator(".cm-scroller").evaluate((element) => element.scrollTop), 0, "Home returns the overview to the start");
+
+assert.equal(await page.locator(".task-top").allTextContents().then((items) => items.some((item) => /minutes|分鐘|分钟/i.test(item))), false, "task cards have no duration estimates");
+const sizeExample = page.frameLocator("#expected-size");
+const colorExample = page.frameLocator("#expected-color");
+await sizeExample.locator("g.node").filter({ hasText: /^China 14\.84%$/ }).waitFor();
+assert.equal(await sizeExample.locator("g.node").filter({ hasText: "Asia" }).locator("circle").getAttribute("r"), "14", "task 1 preview enlarges node circles");
+assert.equal(await sizeExample.locator("g.node").filter({ hasText: "Asia" }).locator("circle").getAttribute("fill"), "#f58321", "task 1 preview retains regional colors");
+assert.equal(await colorExample.locator("g.node").filter({ hasText: "Asia" }).locator("circle").getAttribute("r"), "14", "task 2 preview includes task 1's larger circles");
+assert.equal(await colorExample.locator("g.node").filter({ hasText: "Asia" }).locator("circle").getAttribute("fill"), "#355f9c", "task 2 preview makes Asia blue");
+assert.equal(await colorExample.locator("g.node").filter({ hasText: "North America" }).locator("circle").getAttribute("fill"), "#355f9c", "task 2 preview makes North America blue");
+assert.equal(await colorExample.locator("g.node").filter({ hasText: /^China 14\.84%$/ }).locator("circle").getAttribute("fill"), "#ffffff", "country stays white");
+for (const id of ["expected-size", "expected-color"]) {
+  assert.ok((await page.locator(`#${id}`).boundingBox()).height >= 350, "example frame is taller");
+  assert.equal(await page.frameLocator(`#${id}`).locator("svg").evaluate((svg) => {
+    const frame = svg.getBoundingClientRect();
+    return [...svg.querySelectorAll("g.node text, g.node circle")].every((node) => {
+      const box = node.getBoundingClientRect();
+      return box.left >= frame.left + 8 && box.right <= frame.right - 8 && box.top >= frame.top + 8 && box.bottom <= frame.bottom - 8;
+    });
+  }), true, "all example circles and labels fit by default");
+}
+const exampleSvg = sizeExample.locator("svg");
+const defaultZoom = await exampleSvg.evaluate((svg) => ({ k: svg.__zoom.k, x: svg.__zoom.x, y: svg.__zoom.y }));
+await exampleSvg.hover();
+await page.mouse.wheel(0, -320);
+await page.waitForTimeout(120);
+const zoomed = await exampleSvg.evaluate((svg) => ({ k: svg.__zoom.k, x: svg.__zoom.x, y: svg.__zoom.y }));
+assert.ok(zoomed.k > defaultZoom.k, "wheel zooms the example");
+const exampleBox = await exampleSvg.boundingBox();
+await page.mouse.move(exampleBox.x + exampleBox.width / 2, exampleBox.y + exampleBox.height / 2);
+await page.mouse.down();
+await page.mouse.move(exampleBox.x + exampleBox.width / 2 + 65, exampleBox.y + exampleBox.height / 2 + 35, { steps: 6 });
+await page.mouse.up();
+const dragged = await exampleSvg.evaluate((svg) => ({ k: svg.__zoom.k, x: svg.__zoom.x, y: svg.__zoom.y }));
+assert.ok(Math.abs(dragged.x - zoomed.x) > 30, "mouse drag pans the example");
+await page.locator('[data-reset-example="expected-size"]').click();
+await page.waitForTimeout(150);
+const resetZoom = await exampleSvg.evaluate((svg) => ({ k: svg.__zoom.k, x: svg.__zoom.x, y: svg.__zoom.y }));
+assert.ok(Math.abs(resetZoom.k - defaultZoom.k) < 0.01 && Math.abs(resetZoom.x - defaultZoom.x) < 0.1, "reset view restores fit");
+const asiaCircle = sizeExample.locator("g.node").filter({ hasText: "Asia" }).locator("circle");
+const beforeDragNodes = await sizeExample.locator("g.node").count();
+const asiaBox = await asiaCircle.boundingBox();
+await page.mouse.move(asiaBox.x + asiaBox.width / 2, asiaBox.y + asiaBox.height / 2);
+await page.mouse.down();
+await page.mouse.move(asiaBox.x + asiaBox.width / 2 + 50, asiaBox.y + asiaBox.height / 2 + 30, { steps: 6 });
+await page.mouse.up();
+assert.equal(await sizeExample.locator("g.node").count(), beforeDragNodes, "dragging a node does not click it");
+assert.ok((await page.locator("#task-size .task-actions").evaluate((el) => el.getBoundingClientRect().bottom)) < (await page.locator("#task-size .task-visual").evaluate((el) => el.getBoundingClientRect().top)), "task buttons appear above the diagram");
+
+await page.locator(".cm-scroller").evaluate((element) => {
+  element.scrollTop = element.scrollHeight;
+  window.locateScrollSamples = [element.scrollTop];
+  element.addEventListener("scroll", () => window.locateScrollSamples.push(element.scrollTop));
+});
+await page.locator('[data-focus="hierarchy"]').click();
+const workspaceTop = (await page.locator("#workspace").boundingBox()).y;
+assert.ok(workspaceTop >= 0 && workspaceTop <= 100, "Locate first jumps the page to the workspace");
+await page.waitForFunction(() => {
+  const token = document.querySelector(".cm-locate-token")?.getBoundingClientRect();
+  const editor = document.querySelector("#editor")?.getBoundingClientRect();
+  return token && editor && token.top >= editor.top && token.bottom <= editor.bottom;
+});
+const scrollSamples = await page.evaluate(() => window.locateScrollSamples);
+const firstScroll = scrollSamples[0];
+const finalScroll = scrollSamples.at(-1);
+assert.ok(firstScroll > finalScroll + 300, "Locate travels a meaningful distance from the current editor position");
+assert.ok(scrollSamples.some((value) => value < firstScroll - 100 && value > finalScroll + 100), "editor passes through intermediate scroll positions");
+
+await page.locator('[data-task-focus="size"]').click();
+await page.locator(".cm-locate-token").waitFor();
+await page.waitForFunction(() => {
+  const token = document.querySelector(".cm-locate-token")?.getBoundingClientRect();
+  const editor = document.querySelector("#editor")?.getBoundingClientRect();
+  return token && editor && token.top >= editor.top && token.bottom <= editor.bottom;
+});
+assert.equal(await page.locator(".cm-locate-line").count() > 0, true, "jump highlights target code");
+const locateBox = await page.locator(".cm-locate-token").boundingBox();
+const editorBox = await page.locator("#editor").boundingBox();
+assert.ok(locateBox && editorBox && locateBox.y >= editorBox.y && locateBox.y < editorBox.y + editorBox.height, "highlight is visible after the animated jump");
+await page.locator('[data-focus="layout"]').click();
+await page.locator(".cm-locate-token").waitFor();
+await page.waitForFunction(() => {
+  const token = document.querySelector(".cm-locate-token")?.getBoundingClientRect();
+  const editor = document.querySelector("#editor")?.getBoundingClientRect();
+  return token && editor && token.top >= editor.top && token.bottom <= editor.bottom;
+});
+assert.ok((await page.locator(".cm-locate-token").textContent()).startsWith("const layout = d3.tree().nodeSize"), "walkthrough locate highlights its code");
+await page.locator(".cm-scroller").evaluate((element) => { element.scrollTop = element.scrollHeight; });
+await page.locator('[data-focus="hierarchy"]').evaluate((button) => button.click());
+await page.waitForTimeout(90);
+await page.locator('[data-focus="collapse"]').evaluate((button) => button.click());
+await page.waitForFunction(() => document.querySelector(".cm-locate-token")?.textContent?.includes("if (d.children)"));
+await page.waitForTimeout(550);
+assert.ok((await page.locator(".cm-locate-token").textContent()).includes("if (d.children)"), "a second Locate replaces the first animation and target");
+await page.locator('[data-focus="hierarchy"]').evaluate((button) => button.click());
+await page.waitForTimeout(70);
+await page.locator(".cm-scroller").dispatchEvent("wheel", { deltaY: 120 });
+await page.locator(".cm-scroller").evaluate((element) => { element.scrollTop = 800; });
+await page.waitForTimeout(550);
+assert.ok(Math.abs((await page.locator(".cm-scroller").evaluate((element) => element.scrollTop)) - 800) < 10, "manual scroll cancels Locate animation");
+const scrollBeforeSwitch = await page.locator(".cm-scroller").evaluate((element) => element.scrollTop);
+await page.locator('[data-file="css"]').click();
+await page.locator('[data-file="js"]').click();
+const scrollAfterSwitch = await page.locator(".cm-scroller").evaluate((element) => element.scrollTop);
+assert.ok(Math.abs(scrollAfterSwitch - scrollBeforeSwitch) <= 5, "JS editing position survives file switching");
+
+await frame.locator("g.node").filter({ hasText: "Asia" }).locator("circle").click();
+assert.equal(await frame.locator("g.node").count(), 24, "Asia opens sixteen GDP entries");
+assert.equal(await frame.locator("g.node").filter({ hasText: /^China 14\.84%$/ }).locator("text").textContent(), "China 14.84%", "leaf shows its source GDP share");
+assert.equal(await frame.locator("g.node").filter({ hasText: "Hong Kong SAR, China" }).count(), 1, "Hong Kong is labelled as China's SAR");
+await frame.locator("g.node").filter({ hasText: "Asia" }).locator("circle").click();
+assert.equal(await frame.locator("g.node").count(), 8, "Asia closes again");
+
+await page.locator("#workspace").screenshot({ path: "/private/tmp/group5-lab-workspace.png" });
+
+const editor = page.locator(".cm-content");
+async function readSavedDraft() {
+  await page.waitForFunction(() => document.querySelector("#save-status")?.textContent === "Saved in this browser");
+  return page.evaluate(() => localStorage.getItem("group5-tree-lab:draft:v2"));
+}
+const baseSize = 'node.append("circle").attr("r", 8);';
+const manualSize = 'node.append("circle").attr("r", 14);';
+assert.ok(source.includes(baseSize));
+const minimapBeforeEdit = await minimap.locator("canvas").evaluate((element) => element.toDataURL());
+await editor.fill(source.replace(baseSize, manualSize));
+await page.waitForFunction((previous) => document.querySelector("#code-minimap canvas")?.toDataURL() !== previous, minimapBeforeEdit);
+assert.equal((await minimap.getAttribute("aria-valuetext")).includes(`of ${source.split("\n").length}`), true, "overview keeps the full source position after editing");
+await page.getByRole("button", { name: "Run code" }).click();
+await page.getByText("Preview ready", { exact: false }).waitFor();
+await page.locator('[data-file="html"]').click();
+await page.locator('[data-file="js"]').click();
+assert.ok((await readSavedDraft()).includes(manualSize), "JS draft survives file switching");
+const exportDir = await mkdtemp(join(tmpdir(), "group5-export-"));
+try {
+  const downloadEvent = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Download project ZIP" }).click();
+  const download = await downloadEvent;
+  const zipPath = join(exportDir, "project.zip");
+  await download.saveAs(zipPath);
+  await runFile("unzip", ["-q", zipPath, "-d", exportDir]);
+  const exportedJs = await readFile(join(exportDir, "project", "collapsibleTree.js"), "utf8");
+  assert.ok(exportedJs.includes(manualSize), "ZIP includes current student code");
+  assert.match(await readFile(join(exportDir, "project", "index.html"), "utf8"), /\.\.\/vendor\/d3\.min\.js/);
+  assert.match(await readFile(join(exportDir, "project", "styles.css"), "utf8"), /\.node\.expandable/);
+  const exportedJson = await readFile(join(exportDir, "data", "globalEconomyByGDP.json"), "utf8");
+  assert.match(exportedJson, /"China"/);
+  assert.match(exportedJson, /"name": "Hong Kong"/, "original source label remains in the data file");
+  assert.match(await readFile(join(exportDir, "data", "globalEconomyByGDP.js"), "utf8"), /globalEconomyData/);
+  assert.ok((await readFile(join(exportDir, "vendor", "d3.min.js"))).length > 200000);
+  const offline = await browser.newPage();
+  const offlineErrors = [];
+  offline.on("pageerror", (error) => offlineErrors.push(error.message));
+  await offline.route(/^https?:/, (route) => route.abort());
+  await offline.goto(`file://${join(exportDir, "project", "index.html")}`);
+  assert.equal(await offline.locator("g.node").count(), 8, "offline file opens without server");
+  assert.equal(await offline.locator("g.node").filter({ hasText: "Asia" }).locator("circle").getAttribute("r"), "14", "offline export keeps edited circle size");
+  await offline.locator("g.node").filter({ hasText: "Asia" }).locator("circle").click();
+  assert.equal(await offline.locator("g.node").count(), 24, "offline tree expands");
+  assert.equal(await offline.locator("g.node").filter({ hasText: "Hong Kong SAR, China" }).count(), 1, "offline export uses clarified label");
+  await offline.locator("g.node").filter({ hasText: "Asia" }).locator("circle").click();
+  assert.equal(await offline.locator("g.node").count(), 8, "offline tree collapses");
+  assert.deepEqual(offlineErrors, []);
+  await offline.close();
+} finally {
+  await rm(exportDir, { recursive: true, force: true });
+}
+assert.equal(await page.locator('[data-reveal="size"]').isEnabled(), true, "manual size attempt unlocks answer");
+assert.equal(await page.locator('[data-reveal="color"]').isEnabled(), false, "other answer remains locked");
+assert.equal(await page.frameLocator("#preview").locator("g.node").filter({ hasText: "Asia" }).locator("circle").getAttribute("r"), "14");
+
+await page.locator('[data-reveal="size"]').click();
+await page.locator('[data-insert="size"]').click();
+await page.getByText("Preview ready", { exact: false }).waitFor();
+assert.equal(await page.frameLocator("#preview").locator("g.node").filter({ hasText: "Asia" }).locator("circle").getAttribute("r"), "14");
+
+const afterSpacing = await readSavedDraft();
+const baseColor = 'if (d.depth === 1) return d.data.color;';
+const manualColor = 'if (d.depth === 1) return "#355f9c";';
+assert.ok(afterSpacing.includes(baseColor));
+await editor.fill(afterSpacing.replace(baseColor, manualColor));
+await page.getByRole("button", { name: "Run code" }).click();
+await page.getByText("Preview ready", { exact: false }).waitFor();
+assert.equal(await page.locator('[data-reveal="color"]').isEnabled(), true);
+assert.equal(await page.frameLocator("#preview").locator("g.node").filter({ hasText: "Asia" }).locator("circle").getAttribute("fill"), "#355f9c");
+assert.equal(await page.frameLocator("#preview").locator("g.node").filter({ hasText: "North America" }).locator("circle").getAttribute("fill"), "#355f9c");
+await page.frameLocator("#preview").locator("g.node").filter({ hasText: "Asia" }).locator("circle").click();
+assert.equal(await page.frameLocator("#preview").locator("g.node").filter({ hasText: /^China 14\.84%$/ }).locator("circle").getAttribute("fill"), "#ffffff");
+
+await page.locator('[data-reveal="color"]').click();
+await page.locator('[data-insert="color"]').click();
+await page.getByText("Preview ready", { exact: false }).waitFor();
+const afterBoth = await readSavedDraft();
+assert.ok(afterBoth.includes(manualSize), "task 1 survives task 2 insertion");
+assert.ok(afterBoth.includes(manualColor), "task 2 solution inserted");
+
+await editor.fill(source + "\nthrow new Error('Expected QA error');");
+await page.getByRole("button", { name: "Run code" }).click();
+await page.locator("#error-box").waitFor({ state: "visible" });
+assert.match(await page.locator("#error-box").innerText(), /Expected QA error/);
+assert.ok((await readSavedDraft()).includes("Expected QA error"), "editor preserves broken code");
+
+page.once("dialog", (dialog) => dialog.accept());
+await page.getByRole("button", { name: "Reset", exact: true }).click();
+await page.getByText("Preview ready", { exact: false }).waitFor();
+assert.equal(await page.locator('[data-reveal="color"]').isEnabled(), false, "reset locks answer again");
+assert.equal(await page.locator('[data-reveal="size"]').isEnabled(), false);
+assert.equal(await page.frameLocator("#preview").locator("g.node").filter({ hasText: "Asia" }).locator("circle").getAttribute("r"), "8", "reset restores original circle size");
+assert.equal(await page.frameLocator("#preview").locator("g.node").filter({ hasText: "Asia" }).locator("circle").getAttribute("fill"), "#f58321", "reset restores original continent color");
+assert.equal(await page.evaluate(() => localStorage.getItem("group5-tree-lab:draft:v2")), null, "reset clears browser draft");
+
+const mobile = await browser.newPage({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 1 });
+await mobile.route(/^https?:\/\/(?!127\.0\.0\.1)/, (route) => route.abort());
+await mobile.goto(baseUrl, { waitUntil: "networkidle" });
+await mobile.getByText("Preview ready", { exact: false }).waitFor();
+assert.equal(await mobile.locator("#sidebar-resizer").isVisible(), false, "mobile keeps the horizontal file list without a divider");
+assert.equal(await mobile.locator("#code-minimap").isVisible(), false, "mobile keeps the full editor width without the overview");
+assert.equal(await mobile.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, "no page-level mobile overflow");
+await mobile.locator("#workspace").screenshot({ path: "/private/tmp/group5-lab-mobile.png" });
+await mobile.close();
+
+const reduced = await browser.newPage({ viewport: { width: 1440, height: 900 }, reducedMotion: "reduce" });
+await reduced.goto(baseUrl, { waitUntil: "networkidle" });
+await reduced.locator(".cm-scroller").evaluate((element) => { element.scrollTop = element.scrollHeight; });
+await reduced.locator('[data-focus="hierarchy"]').click();
+await reduced.waitForFunction(() => {
+  const token = document.querySelector(".cm-locate-token")?.getBoundingClientRect();
+  const editor = document.querySelector("#editor")?.getBoundingClientRect();
+  return token && editor && token.top >= editor.top && token.bottom <= editor.bottom;
+});
+assert.ok((await reduced.locator(".cm-scroller").evaluate((element) => element.scrollTop)) < 600, "reduced motion locates the target without travel");
+await reduced.close();
+
+const legacy = await browser.newPage();
+const clarifiedLine = 'const name = d.depth === 0 ? "World" : d.data.code === "HK" ? "Hong Kong SAR, China" : d.data.name;';
+const oldLine = '.text((d) => d.depth === 0 ? "World" : d.data.name)';
+assert.ok(source.includes(clarifiedLine));
+const oldTaskBlock = '  // TASK 1 START: make the horizontal gap four times the row gap.\n  const columnGap = rowGap * 4;\n  // TASK 1 END';
+const newTaskBlock = '        // TASK 1 START: make every node circle larger.\n        node.append("circle").attr("r", 8);\n        // TASK 1 END';
+await legacy.addInitScript(({ key, draft }) => localStorage.setItem(key, draft), {
+  key: "group5-tree-lab:draft:v2",
+  draft: "// Learner note\n" + source
+    .replace(newTaskBlock, '        node.append("circle").attr("r", 8);')
+    .replace("  const columnGap = 245;", oldTaskBlock)
+    .replace("// TASK 2 START: give all regional groups one shared color.", "// TASK 2 START: read each regional group's color from its data.")
+    .replace('if (d.depth === 1) return d.data.color;', 'if (d.depth === 1) return "#355f9c";')
+    .replace(/\.sum\(\(d\) => d\.weight \|\| 0\)/, "")
+    .replace(/\.text\(\(d\) => \{[\s\S]*?\n      \}\)/, oldLine),
+});
+await legacy.goto(baseUrl, { waitUntil: "networkidle" });
+await legacy.getByText("Preview ready", { exact: false }).waitFor();
+assert.ok((await legacy.locator(".cm-content").innerText()).includes("// Learner note"), "existing student draft is retained");
+assert.ok((await legacy.locator(".cm-content").innerText()).includes("const columnGap = rowGap * 4;"), "old Task 1 edit is preserved");
+await legacy.locator('[data-task-focus="size"]').click();
+assert.match(await legacy.locator(".cm-locate-line").first().innerText(), /TASK 1 START: make every node circle larger/, "old draft gets the new Task 1 marker");
+assert.match(await legacy.frameLocator("#preview").locator("g.node").filter({ hasText: "Asia" }).getAttribute("transform"), /^translate\(176,/, "old spacing edit still runs");
+assert.equal(await legacy.frameLocator("#preview").locator("g.node").filter({ hasText: "Asia" }).locator("circle").getAttribute("fill"), "#f58321", "old fixed-blue draft receives data colors");
+await legacy.frameLocator("#preview").locator("g.node").filter({ hasText: "Asia" }).locator("circle").click();
+assert.equal(await legacy.frameLocator("#preview").locator("g.node").filter({ hasText: "Hong Kong SAR, China" }).count(), 1, "older draft gets the clarified label");
+assert.equal(await legacy.frameLocator("#preview").locator("g.node").filter({ hasText: "Asia" }).locator("text").textContent(), "Asia 33.84% (16)", "older draft gets GDP shares");
+await legacy.close();
+
+assert.deepEqual(errors, [], "parent page has no uncaught JavaScript errors");
+await browser.close();
+console.log("QA passed: animated code location, minimap navigation, file tabs, ZIP export, offline launch, tree interaction, beginner tasks, reset, and mobile layout.");
