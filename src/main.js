@@ -151,7 +151,10 @@ document.querySelector("#app").innerHTML = `
       <div class="workspace" id="workspace">
         <div class="workspace-head">
           <div><span class="workspace-kicker">LIVE WORKSPACE</span><h3>Read, edit, run, observe.</h3></div>
-          <div class="workspace-help" role="note"><span class="workspace-help-icon" aria-hidden="true">↘</span><span><strong>Click a regional group</strong><small>to expand countries and regions · 點擊地區分組展開國家和地區</small></span></div>
+          <div class="workspace-head-actions">
+            <button class="return-button" id="return-to-source" type="button" hidden>← Back to where I was <span lang="zh-Hant">返回剛才的位置</span></button>
+            <div class="workspace-help" role="note"><span class="workspace-help-icon" aria-hidden="true">↘</span><span><strong>Click a regional group</strong><small>to expand countries and regions · 點擊地區分組展開國家和地區</small></span></div>
+          </div>
         </div>
         <div class="workbench">
           <div class="editor-pane">
@@ -642,13 +645,28 @@ new ResizeObserver(() => setSidebarWidth(sidebarWidth)).observe(editorBody);
 function setCode(next) {
   editor.dispatch({ changes: { from: 0, to: editor.state.doc.length, insert: next } });
 }
-function focusText(token, endToken = token) {
+const returnButton = document.querySelector("#return-to-source");
+let returnTarget = null;
+returnButton.addEventListener("click", () => {
+  if (!returnTarget) return;
+  const { button, scrollY } = returnTarget;
+  returnTarget = null;
+  returnButton.hidden = true;
+  button.focus({ preventScroll: true });
+  window.scrollTo({ top: scrollY, behavior: "instant" });
+});
+function focusText(token, endToken = token, originButton = null) {
+  const originScrollY = window.scrollY;
   selectFile("js");
   const source = editor.state.doc.toString();
   const start = source.indexOf(token);
   if (start < 0) {
     showError(`Could not find “${token}” in the current code. Reset the source or locate the line manually.`);
-    return;
+    return false;
+  }
+  if (originButton) {
+    returnTarget = { button: originButton, scrollY: originScrollY };
+    returnButton.hidden = false;
   }
   const endStart = source.indexOf(endToken, start);
   const end = endStart >= 0 ? endStart + endToken.length : start + token.length;
@@ -698,6 +716,7 @@ function focusText(token, endToken = token) {
     };
     locateFrame = requestAnimationFrame(step);
   });
+  return true;
 }
 function showError(message) {
   const box = document.querySelector("#error-box");
@@ -934,11 +953,11 @@ document.querySelector("#download-project-button").addEventListener("click", asy
 document.querySelectorAll("[data-focus]").forEach((button) => button.addEventListener("click", () => {
   const lesson = lessonData.find((item) => item.id === button.dataset.focus);
   const part = lesson.parts[0];
-  focusText(part.start, part.end || part.start);
+  focusText(part.start, part.end || part.start, button);
 }));
 document.querySelectorAll("[data-task-focus]").forEach((button) => button.addEventListener("click", () => {
   const [start, end] = taskMarkers[button.dataset.taskFocus];
-  focusText(start, end);
+  focusText(start, end, button);
 }));
 document.querySelectorAll("[data-hint]").forEach((button) => button.addEventListener("click", () => {
   const hint = document.querySelector(`#hint-${button.dataset.hint}`);
@@ -961,7 +980,7 @@ document.querySelectorAll("[data-insert]").forEach((button) => button.addEventLi
   }
   setCode(current.replace(currentRegion, taskSolutions[task]));
   runCode();
-  focusText(taskMarkers[task][0], taskMarkers[task][1]);
+  focusText(taskMarkers[task][0], taskMarkers[task][1], button);
 }));
 
 runCode();

@@ -41,6 +41,32 @@ await rowGapChip.focus();
 assert.equal(await layoutLesson.locator(".snippet-token.is-highlighted").count(), 1, "keyboard focus gives the same highlight");
 await rowGapChip.evaluate((element) => element.blur());
 assert.equal(await layoutLesson.locator(".snippet-token.is-highlighted").count(), 0, "keyboard blur clears the highlight");
+const returnButton = page.locator("#return-to-source");
+assert.equal(await returnButton.isVisible(), false, "return button starts hidden");
+for (const selector of ['[data-focus="appearance"]', '[data-task-focus="color"]', '[data-task-focus="spacing"]']) {
+  const trigger = page.locator(selector);
+  await trigger.scrollIntoViewIfNeeded();
+  const originY = await page.evaluate(() => scrollY);
+  await trigger.click();
+  assert.equal(await returnButton.isVisible(), true, `${selector} makes return available`);
+  if (selector === '[data-focus="appearance"]') {
+    await returnButton.focus();
+    await page.keyboard.press("Enter");
+  } else {
+    await returnButton.click();
+  }
+  assert.ok(Math.abs((await page.evaluate(() => scrollY)) - originY) <= 2, `${selector} returns to its page position`);
+  assert.equal(await trigger.evaluate((button) => document.activeElement === button), true, `${selector} regains keyboard focus`);
+  assert.equal(await returnButton.isVisible(), false, "return button hides after use");
+}
+await page.locator('[data-focus="hierarchy"]').click();
+const latestTrigger = page.locator('[data-task-focus="spacing"]');
+await latestTrigger.scrollIntoViewIfNeeded();
+const latestOriginY = await page.evaluate(() => scrollY);
+await latestTrigger.click();
+await returnButton.click();
+assert.ok(Math.abs((await page.evaluate(() => scrollY)) - latestOriginY) <= 2, "consecutive jumps return to the latest trigger");
+assert.equal(await latestTrigger.evaluate((button) => document.activeElement === button), true);
 for (const button of await page.locator(".lesson .locate-button").all()) {
   await button.click();
   await page.waitForFunction(() => {
@@ -343,9 +369,16 @@ assert.equal(await page.locator('[data-reveal="spacing"]').isEnabled(), false, "
 assert.equal(await page.frameLocator("#preview").locator("g.node").filter({ hasText: "Asia" }).locator("circle").getAttribute("fill"), "#355f9c");
 
 await page.locator('[data-reveal="color"]').click();
-await page.locator('[data-insert="color"]').click();
+const insertColor = page.locator('[data-insert="color"]');
+await insertColor.scrollIntoViewIfNeeded();
+const colorInsertY = await page.evaluate(() => scrollY);
+await insertColor.click();
 await page.getByText("Preview ready", { exact: false }).waitFor();
 assert.equal(await page.frameLocator("#preview").locator("g.node").filter({ hasText: "Asia" }).locator("circle").getAttribute("fill"), "#355f9c");
+assert.equal(await returnButton.isVisible(), true, "answer insertion offers a return route");
+await returnButton.click();
+assert.ok(Math.abs((await page.evaluate(() => scrollY)) - colorInsertY) <= 2);
+assert.equal(await insertColor.evaluate((button) => document.activeElement === button), true);
 
 const afterColor = await readSavedDraft();
 await editor.fill(afterColor.replace(spacingPlaceholder, manualSpacing));
@@ -363,8 +396,14 @@ await page.frameLocator("#preview").locator("g.node").filter({ hasText: "Asia" }
 assert.equal(await page.frameLocator("#preview").locator("g.node").filter({ hasText: /^China 14\.84%$/ }).locator("circle").getAttribute("fill"), "#ffffff");
 
 await page.locator('[data-reveal="spacing"]').click();
-await page.locator('[data-insert="spacing"]').click();
+const insertSpacing = page.locator('[data-insert="spacing"]');
+await insertSpacing.scrollIntoViewIfNeeded();
+const spacingInsertY = await page.evaluate(() => scrollY);
+await insertSpacing.click();
 await page.getByText("Preview ready", { exact: false }).waitFor();
+await returnButton.click();
+assert.ok(Math.abs((await page.evaluate(() => scrollY)) - spacingInsertY) <= 2);
+assert.equal(await insertSpacing.evaluate((button) => document.activeElement === button), true);
 const afterBoth = await readSavedDraft();
 assert.ok(afterBoth.includes(manualColor), "task 1 survives task 2 insertion");
 assert.ok(afterBoth.includes(manualSpacing), "task 2 solution inserted");
@@ -404,6 +443,10 @@ assert.equal(await page.locator('[data-reveal="spacing"]').isEnabled(), false);
 assert.equal(await page.frameLocator("#preview").locator("g.node").filter({ hasText: "Asia" }).locator("circle").getAttribute("r"), "8", "reset restores original circle size");
 assert.equal(await page.frameLocator("#preview").locator("g.node").filter({ hasText: "Asia" }).locator("circle").getAttribute("fill"), "#f58321", "reset restores original continent color");
 assert.equal(await page.evaluate(() => localStorage.getItem("group5-tree-lab:draft:v2")), null, "reset clears browser draft");
+await editor.fill(source.replace("// TASK 1 START", "// REMOVED TASK 1 START"));
+await page.locator('[data-task-focus="color"]').click();
+assert.match(await page.locator("#error-box").innerText(), /Could not find/);
+assert.equal(await returnButton.isVisible(), false, "missing target does not show a return button");
 
 const mobile = await browser.newPage({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 1 });
 await mobile.route(/^https?:\/\/(?!127\.0\.0\.1)/, (route) => route.abort());
@@ -419,6 +462,18 @@ assert.equal(await mobile.frameLocator("#preview").locator("svg").evaluate((svg)
 assert.equal(await mobile.locator("#sidebar-resizer").isVisible(), false, "mobile keeps the horizontal file list without a divider");
 assert.equal(await mobile.locator("#code-minimap").isVisible(), false, "mobile keeps the full editor width without the overview");
 assert.equal(await mobile.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, "no page-level mobile overflow");
+const mobileTrigger = mobile.locator('[data-task-focus="color"]');
+await mobileTrigger.scrollIntoViewIfNeeded();
+const mobileOriginY = await mobile.evaluate(() => scrollY);
+await mobileTrigger.click();
+const mobileReturn = mobile.locator("#return-to-source");
+assert.equal(await mobileReturn.isVisible(), true);
+const mobileReturnBox = await mobileReturn.boundingBox();
+assert.ok(mobileReturnBox.y >= 0 && mobileReturnBox.y + mobileReturnBox.height <= 844, "mobile return button is visible after the jump");
+await mobileReturn.click();
+assert.ok(Math.abs((await mobile.evaluate(() => scrollY)) - mobileOriginY) <= 2);
+assert.equal(await mobileTrigger.evaluate((button) => document.activeElement === button), true);
+assert.equal(await mobile.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, "return control causes no mobile overflow");
 await mobile.locator("#workspace").screenshot({ path: "/private/tmp/group5-lab-mobile.png" });
 await mobile.close();
 
@@ -432,6 +487,10 @@ await reduced.waitForFunction(() => {
   return token && editor && token.top >= editor.top && token.bottom <= editor.bottom;
 });
 assert.ok((await reduced.locator(".cm-scroller").evaluate((element) => element.scrollTop)) < 600, "reduced motion locates the target without travel");
+const reducedReturn = reduced.locator("#return-to-source");
+assert.equal(await reducedReturn.isVisible(), true);
+await reducedReturn.click();
+assert.equal(await reduced.locator('[data-focus="hierarchy"]').evaluate((button) => document.activeElement === button), true, "reduced motion returns keyboard focus");
 await reduced.close();
 
 const legacy = await browser.newPage();
