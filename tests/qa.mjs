@@ -52,6 +52,15 @@ for (const button of await page.locator(".lesson .locate-button").all()) {
 }
 const frame = page.frameLocator("#preview");
 assert.equal(await frame.locator("g.node").count(), 8, "root plus seven regional groups");
+assert.equal(await frame.locator("svg").evaluate((svg) => {
+  const view = svg.getBoundingClientRect();
+  return [...svg.querySelectorAll("g.node")].every((node) => {
+    const box = node.getBoundingClientRect();
+    return box.left >= view.left && box.right <= view.right && box.top >= view.top && box.bottom <= view.bottom;
+  });
+}), true, "all regional nodes fit inside the initial preview");
+assert.equal(await frame.locator("body").evaluate((body) => body.scrollWidth <= innerWidth), true, "main preview has no horizontal scrollbar");
+const initialMainView = await frame.locator("svg").evaluate((svg) => ({ ...svg.__zoom }));
 assert.equal(await frame.locator("g.node").first().locator("text").textContent(), "World 99.97% (7)", "root shows the source total and group count");
 assert.equal(await frame.locator("g.node").filter({ hasText: "Asia" }).locator("text").textContent(), "Asia 33.84% (16)", "collapsed group retains its summed share and count");
 assert.equal(await frame.locator("g.node").filter({ hasText: "Asia" }).locator("circle").getAttribute("fill"), "#f58321", "initial Asia color comes from the data");
@@ -64,10 +73,10 @@ await page.mouse.down();
 await page.mouse.move(mainAsiaBox.x + mainAsiaBox.width / 2 + 55, mainAsiaBox.y + mainAsiaBox.height / 2 + 25, { steps: 6 });
 await page.mouse.up();
 assert.equal(await frame.locator("g.node").count(), 8, "dragging from a regional node does not expand it");
-assert.ok((await frame.locator("svg").evaluate((svg) => svg.__zoom.x)) > 40, "left mouse drag pans the main preview");
+assert.ok((await frame.locator("svg").evaluate((svg) => svg.__zoom.x)) - initialMainView.x > 40, "left mouse drag pans the main preview");
 await page.locator("#reset-main-view").click();
 await page.waitForTimeout(100);
-assert.ok(Math.abs(await frame.locator("svg").evaluate((svg) => svg.__zoom.x)) < 0.01, "main preview reset restores its position");
+assert.ok(Math.abs(await frame.locator("svg").evaluate((svg) => svg.__zoom.x) - initialMainView.x) < 2, "main preview reset restores its fitted position");
 assert.equal(await page.locator(".traffic-lights i").count(), 3, "decorative window lights");
 assert.equal(await page.locator(".traffic-lights button").count(), 0, "window lights are not controls");
 assert.equal(await page.locator(".activity-bar").count(), 0, "unused left icon rail is removed");
@@ -247,6 +256,13 @@ assert.ok(Math.abs(scrollAfterSwitch - scrollBeforeSwitch) <= 5, "JS editing pos
 
 await frame.locator("g.node").filter({ hasText: "Asia" }).locator("circle").click();
 assert.equal(await frame.locator("g.node").count(), 24, "Asia opens sixteen GDP entries");
+assert.equal(await frame.locator("svg").evaluate((svg) => {
+  const view = svg.getBoundingClientRect();
+  return [...svg.querySelectorAll("g.node")].every((node) => {
+    const box = node.getBoundingClientRect();
+    return box.left >= view.left && box.right <= view.right && box.top >= view.top && box.bottom <= view.bottom;
+  });
+}), true, "expanded nodes also fit inside the preview");
 assert.equal(await frame.locator("g.node").filter({ hasText: /^China 14\.84%$/ }).locator("text").textContent(), "China 14.84%", "leaf shows its source GDP share");
 assert.equal(await frame.locator("g.node").filter({ hasText: "Hong Kong SAR, China" }).count(), 1, "Hong Kong is labelled as China's SAR");
 await frame.locator("g.node").filter({ hasText: "Asia" }).locator("circle").click();
@@ -353,6 +369,13 @@ const mobile = await browser.newPage({ viewport: { width: 390, height: 844 }, de
 await mobile.route(/^https?:\/\/(?!127\.0\.0\.1)/, (route) => route.abort());
 await mobile.goto(baseUrl, { waitUntil: "networkidle" });
 await mobile.getByText("Preview ready", { exact: false }).waitFor();
+assert.equal(await mobile.frameLocator("#preview").locator("svg").evaluate((svg) => {
+  const view = svg.getBoundingClientRect();
+  return [...svg.querySelectorAll("g.node")].every((node) => {
+    const box = node.getBoundingClientRect();
+    return box.left >= view.left && box.right <= view.right && box.top >= view.top && box.bottom <= view.bottom;
+  });
+}), true, "regional nodes fit the mobile preview");
 assert.equal(await mobile.locator("#sidebar-resizer").isVisible(), false, "mobile keeps the horizontal file list without a divider");
 assert.equal(await mobile.locator("#code-minimap").isVisible(), false, "mobile keeps the full editor width without the overview");
 assert.equal(await mobile.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, "no page-level mobile overflow");

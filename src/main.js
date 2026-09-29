@@ -704,9 +704,9 @@ let currentFrame;
 let runCount = 0;
 function previewDocument(compact = false) {
   return `<!doctype html><html lang="en"><head><meta charset="UTF-8"><style>
-    html,body{margin:0;${compact ? "height:100%;overflow:hidden;" : "min-height:100%;"}background:#fff;font-family:Inter,ui-sans-serif,system-ui,sans-serif;color:#203452}
-    #chart{min-width:${compact ? 0 : 1020}px;${compact ? "width:100%;height:100%;" : "padding:10px 0;"}}
-    svg{display:block;cursor:grab;${compact ? "width:100%;height:100%;touch-action:none" : ""}}svg:active{cursor:grabbing}.link{fill:none;stroke:#b7c8dc;stroke-width:1.7}
+    html,body{margin:0;height:100%;overflow:hidden;background:#fff;font-family:Inter,ui-sans-serif,system-ui,sans-serif;color:#203452}
+    #chart{width:100%;height:100%}
+    svg{display:block;width:100%;height:100%;cursor:grab;touch-action:none}svg:active{cursor:grabbing}.link{fill:none;stroke:#b7c8dc;stroke-width:1.7}
     .node circle{stroke:#355f9c;stroke-width:2;transition:fill .15s}
     .node text{font-size:13px;fill:#203452;pointer-events:none}
     .node.expandable{cursor:pointer}.node.expandable:hover circle{stroke:#0b61df;stroke-width:3}
@@ -717,6 +717,7 @@ function previewDocument(compact = false) {
       let resetExampleView;
       let resetMainView;
       function setupMainDrag() {
+        const chart = document.querySelector("#chart");
         const svg = document.querySelector("#chart svg");
         const stage = svg.querySelector("g");
         const viewport = document.createElementNS("http://www.w3.org/2000/svg", "g");
@@ -727,7 +728,26 @@ function previewDocument(compact = false) {
           .clickDistance(5)
           .on("zoom", (event) => viewport.setAttribute("transform", event.transform.toString()));
         d3.select(svg).call(zoom).on("dblclick.zoom", null);
-        resetMainView = () => d3.select(svg).call(zoom.transform, d3.zoomIdentity);
+        const fit = () => {
+          const width = chart.clientWidth;
+          const height = chart.clientHeight;
+          if (!width || !height) return;
+          svg.removeAttribute("width");
+          svg.removeAttribute("height");
+          svg.setAttribute("viewBox", "0 0 " + width + " " + height);
+          const bounds = viewport.getBBox();
+          const padding = 24;
+          const scale = Math.min(1, (width - padding * 2) / bounds.width, (height - padding * 2) / bounds.height);
+          const x = (width - bounds.width * scale) / 2 - bounds.x * scale;
+          const y = (height - bounds.height * scale) / 2 - bounds.y * scale;
+          d3.select(svg).call(zoom.transform, d3.zoomIdentity.translate(x, y).scale(scale));
+        };
+        resetMainView = fit;
+        new ResizeObserver(fit).observe(chart);
+        new MutationObserver(() => {
+          if (svg.hasAttribute("height") || svg.getAttribute("viewBox") !== "0 0 " + chart.clientWidth + " " + chart.clientHeight) fit();
+        }).observe(svg, { attributes: true, attributeFilter: ["height", "viewBox"] });
+        fit();
       }
       function setupExampleView() {
         const chart = document.querySelector("#chart");
