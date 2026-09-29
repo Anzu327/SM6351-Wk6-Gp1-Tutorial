@@ -96,7 +96,9 @@ h2{font-family:Georgia,serif;font-size:clamp(30px,3.5vw,45px);line-height:1.15;l
 .preview-tab{height:100%;display:flex;align-items:center;border-bottom:2px solid #3170d7;color:#235bb4;font-weight:700;padding:0 7px}
 .preview-frame-wrap{height:773px;overflow:hidden}
 #preview{display:block;width:100%;height:100%;border:0;background:#fff}
-.preview-footer{display:flex;justify-content:space-between;gap:8px;padding:9px 14px;color:#526984;font-size:13px;border-top:1px solid #e6edf5}
+.preview-footer{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;padding:9px 14px;color:#526984;font-size:13px;border-top:1px solid #e6edf5}
+#reset-main-view{border:1px solid #aec9eb;border-radius:5px;background:#fff;color:#245fae;padding:5px 8px;font-size:12px;font-weight:700}
+#reset-main-view:hover{background:#eaf3ff}
 #run-status{color:#2463b6;font-weight:700}
 .error-box{margin:0;padding:16px 22px;background:#fff3f2;color:#a83832;border-top:1px solid #efc3be;font-size:14px;white-space:pre-wrap;max-height:160px;overflow:auto}
 .walkthrough{padding-top:90px}

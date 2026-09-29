@@ -201,7 +201,7 @@ document.querySelector("#app").innerHTML = `
           <div class="preview-pane">
             <div class="pane-toolbar preview-toolbar"><span class="preview-tab">Preview</span><span>World → group → country / region</span></div>
             <div class="preview-frame-wrap"><iframe id="preview" title="D3 tree preview" sandbox="allow-scripts"></iframe></div>
-            <div class="preview-footer"><span id="run-status" role="status">Loading preview…</span><span>Scroll inside to explore</span></div>
+            <div class="preview-footer"><span id="run-status" role="status">Loading preview…</span><span>Hold left mouse button and drag · 按住左鍵拖動</span><button id="reset-main-view" type="button">Reset view</button></div>
           </div>
         </div>
         <pre id="error-box" class="error-box" role="alert" hidden></pre>
@@ -706,7 +706,7 @@ function previewDocument(compact = false) {
   return `<!doctype html><html lang="en"><head><meta charset="UTF-8"><style>
     html,body{margin:0;${compact ? "height:100%;overflow:hidden;" : "min-height:100%;"}background:#fff;font-family:Inter,ui-sans-serif,system-ui,sans-serif;color:#203452}
     #chart{min-width:${compact ? 0 : 1020}px;${compact ? "width:100%;height:100%;" : "padding:10px 0;"}}
-    svg{display:block;${compact ? "width:100%;height:100%;cursor:grab;touch-action:none" : ""}}${compact ? "svg:active{cursor:grabbing}" : ""}.link{fill:none;stroke:#b7c8dc;stroke-width:1.7}
+    svg{display:block;cursor:grab;${compact ? "width:100%;height:100%;touch-action:none" : ""}}svg:active{cursor:grabbing}.link{fill:none;stroke:#b7c8dc;stroke-width:1.7}
     .node circle{stroke:#355f9c;stroke-width:2;transition:fill .15s}
     .node text{font-size:13px;fill:#203452;pointer-events:none}
     .node.expandable{cursor:pointer}.node.expandable:hover circle{stroke:#0b61df;stroke-width:3}
@@ -715,6 +715,20 @@ function previewDocument(compact = false) {
     <div id="chart"></div>
     <script>
       let resetExampleView;
+      let resetMainView;
+      function setupMainDrag() {
+        const svg = document.querySelector("#chart svg");
+        const stage = svg.querySelector("g");
+        const viewport = document.createElementNS("http://www.w3.org/2000/svg", "g");
+        svg.insertBefore(viewport, stage);
+        viewport.appendChild(stage);
+        const zoom = d3.zoom()
+          .filter((event) => event.type === "mousedown" && event.button === 0)
+          .clickDistance(5)
+          .on("zoom", (event) => viewport.setAttribute("transform", event.transform.toString()));
+        d3.select(svg).call(zoom).on("dblclick.zoom", null);
+        resetMainView = () => d3.select(svg).call(zoom.transform, d3.zoomIdentity);
+      }
       function setupExampleView() {
         const chart = document.querySelector("#chart");
         const svg = chart.querySelector("svg");
@@ -745,6 +759,7 @@ function previewDocument(compact = false) {
       }
       addEventListener("message", (event) => {
         if (event.data?.type === "reset-view") { resetExampleView?.(); return; }
+        if (event.data?.type === "reset-main-view") { resetMainView?.(); return; }
         if (!event.data || event.data.type !== "run") return;
         try {
           if (!window.d3) throw new Error("Local D3 library did not load.");
@@ -757,6 +772,7 @@ function previewDocument(compact = false) {
             node?.dispatchEvent(new MouseEvent("click", {bubbles: true}));
           }
           if (${compact}) setupExampleView();
+          else setupMainDrag();
           parent.postMessage({type:"preview-result", id:event.data.id, ok:true}, "*");
         } catch (error) {
           parent.postMessage({type:"preview-result", id:event.data.id, ok:false, message: String(error.stack || error)}, "*");
@@ -791,6 +807,9 @@ function mountExpectedPreviews() {
 document.querySelectorAll("[data-reset-example]").forEach((button) => button.addEventListener("click", () => {
   document.querySelector(`#${button.dataset.resetExample}`).contentWindow?.postMessage({ type: "reset-view" }, "*");
 }));
+document.querySelector("#reset-main-view").addEventListener("click", () => {
+  currentFrame?.contentWindow?.postMessage({ type: "reset-main-view" }, "*");
+});
 function runCode() {
   const code = editor.state.doc.toString();
   for (const task of Object.keys(attempted)) {

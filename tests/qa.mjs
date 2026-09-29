@@ -56,6 +56,18 @@ assert.equal(await frame.locator("g.node").first().locator("text").textContent()
 assert.equal(await frame.locator("g.node").filter({ hasText: "Asia" }).locator("text").textContent(), "Asia 33.84% (16)", "collapsed group retains its summed share and count");
 assert.equal(await frame.locator("g.node").filter({ hasText: "Asia" }).locator("circle").getAttribute("fill"), "#f58321", "initial Asia color comes from the data");
 assert.equal(await frame.locator("g.node").filter({ hasText: "North America" }).locator("circle").getAttribute("fill"), "#ef1621", "initial North America color comes from the data");
+const mainAsiaCircle = frame.locator("g.node").filter({ hasText: "Asia" }).locator("circle");
+await mainAsiaCircle.scrollIntoViewIfNeeded();
+const mainAsiaBox = await mainAsiaCircle.boundingBox();
+await page.mouse.move(mainAsiaBox.x + mainAsiaBox.width / 2, mainAsiaBox.y + mainAsiaBox.height / 2);
+await page.mouse.down();
+await page.mouse.move(mainAsiaBox.x + mainAsiaBox.width / 2 + 55, mainAsiaBox.y + mainAsiaBox.height / 2 + 25, { steps: 6 });
+await page.mouse.up();
+assert.equal(await frame.locator("g.node").count(), 8, "dragging from a regional node does not expand it");
+assert.ok((await frame.locator("svg").evaluate((svg) => svg.__zoom.x)) > 40, "left mouse drag pans the main preview");
+await page.locator("#reset-main-view").click();
+await page.waitForTimeout(100);
+assert.ok(Math.abs(await frame.locator("svg").evaluate((svg) => svg.__zoom.x)) < 0.01, "main preview reset restores its position");
 assert.equal(await page.locator(".traffic-lights i").count(), 3, "decorative window lights");
 assert.equal(await page.locator(".traffic-lights button").count(), 0, "window lights are not controls");
 assert.equal(await page.locator(".activity-bar").count(), 0, "unused left icon rail is removed");
