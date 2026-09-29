@@ -145,7 +145,7 @@ document.querySelector("#app").innerHTML = `
             <span class="data-connector"></span>
             <span class="data-node country">China <small>country or region · 14.84%</small></span>
           </div>
-          <p class="source-note">Historical GDP share snapshot, January 2017. The <a href="https://gist.github.com/Kcnarf/fa95aa7b076f537c00aed614c29bb568" target="_blank" rel="noreferrer">source Gist</a> lists Hong Kong separately for GDP; under the <a href="https://www.basiclaw.gov.hk/en/basiclaw/chapter1.html" target="_blank" rel="noreferrer">Basic Law</a>, it is a Special Administrative Region of China. The chart clarifies its display label while keeping the source JSON unchanged. “Rest of the World” is an aggregate.</p>
+          <p class="source-note">Historical GDP share snapshot, January 2017, from the <a href="https://gist.github.com/Kcnarf/fa95aa7b076f537c00aed614c29bb568" target="_blank" rel="noreferrer">source Gist</a>. “Rest of the World” is an aggregate.</p>
         </div>
       </div>
       <div class="workspace" id="workspace">

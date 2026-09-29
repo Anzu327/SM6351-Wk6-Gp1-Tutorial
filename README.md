@@ -38,7 +38,7 @@ To publish later changes, push to `main` and wait for the **Deploy classroom lab
 ## Files
 
 - `Visualizations/collapsibleTree.js`: the independent D3 visualization source and the editor's initial code. It expects `d3`, `data`, and `container` to be supplied by a host page; the lab's isolated preview runner supplies them.
-- `data/globalEconomyByGDP.json`: dataset transcribed from the linked Gist. Original names and values are retained, including source spellings. The chart labels the source's Hong Kong entry as “Hong Kong SAR, China” and describes leaves as countries and regions; a separate GDP entry does not imply independent statehood.
+- `data/globalEconomyByGDP.json`: dataset transcribed from the linked Gist. Original names and values are retained, including source spellings. The chart displays entries as countries and regions, including “Hong Kong SAR, China”.
 - `src/main.js`, `src/styles.css`: teaching page, editor, exercise controls, and design.
 - `student-project/project/index.html`, `student-project/project/styles.css`: the standalone HTML and CSS shown read-only in the student file list and placed in the ZIP download.
 - `PRESENTATION_NOTES.md`: local presenter-only outline, excluded from the public repository.
