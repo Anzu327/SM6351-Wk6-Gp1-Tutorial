@@ -43,11 +43,11 @@ h2{font-family:Georgia,serif;font-size:clamp(30px,3.5vw,45px);line-height:1.15;l
 .source-note{font-size:13px!important;line-height:1.6!important;color:#66778d!important;max-width:720px}
 .workspace{width:min(1560px,calc(100vw - 48px));margin-left:50%;transform:translateX(-50%);background:#fff;border:1px solid #dce5f0;border-radius:11px;box-shadow:0 20px 50px rgba(31,62,105,.08);overflow:hidden;scroll-margin-top:72px}
 .workspace-head{padding:22px 26px;display:flex;justify-content:space-between;align-items:end;gap:20px}
-.workspace-head-actions{display:flex;align-items:center;justify-content:flex-end;gap:12px;flex-wrap:wrap}
-.return-button{display:inline-flex;align-items:center;gap:8px;padding:10px 13px;border:1px solid #2e70d1;border-radius:8px;background:#2e70d1;color:#fff;font-size:14px;font-weight:700;white-space:nowrap}
-.return-button:hover{background:#205db8;border-color:#205db8}
+.return-button{display:inline-flex;align-items:center;gap:8px;padding:10px 13px;border:1px solid #ffd56e;border-radius:6px;background:#f5c95e;color:#172947;font-size:14px;font-weight:800;white-space:nowrap;animation:return-breathe 1.5s ease-in-out infinite}
+.return-button:hover{background:#ffe08a;border-color:#ffe08a}
 .return-button[hidden]{display:none}
 .return-button span{font-size:12px;font-weight:500}
+@keyframes return-breathe{0%,100%{box-shadow:0 0 0 2px rgba(245,201,94,.35),0 0 8px rgba(245,201,94,.3)}50%{box-shadow:0 0 0 7px rgba(245,201,94,.2),0 0 24px rgba(245,201,94,.8)}}
 .workspace-kicker{font-size:13px;letter-spacing:.16em;color:#2a64b6;font-weight:800}
 .workspace-head h3{font-family:Georgia,serif;font-size:24px;margin:4px 0 0}
 .workspace-help{display:flex;align-items:center;gap:11px;max-width:370px;padding:10px 14px;border:1px solid #9fc7ff;border-radius:10px;background:#eaf4ff;box-shadow:0 4px 15px rgba(36,103,194,.1);color:#174b96;text-align:left}
@@ -209,6 +209,6 @@ h2{font-family:Georgia,serif;font-size:clamp(30px,3.5vw,45px);line-height:1.15;l
 @media(max-width:700px){.pipeline{padding:20px 16px}.pipeline-steps{grid-template-columns:1fr}.code-words{padding:14px}.code-words dl{grid-template-columns:1fr}.beginner-explain{grid-template-columns:1fr}}
 @media(max-width:700px){.shell{width:min(100% - 30px,1320px)}.hero-inner{padding-bottom:44px}.hero-top{font-size:13px}.hero-top span:last-child{display:none}.hero-copy{padding-top:38px}.hero-copy p{font-size:17px}.nav-inner{gap:18px;overflow:auto;min-height:52px}.nav-time{display:none}.section{padding-top:55px}.data-diagram{overflow:auto}.data-node{min-width:115px;padding:8px 10px}.workspace{width:calc(100vw - 30px)}.workspace-head{align-items:start;flex-direction:column}.workspace-help{max-width:none;width:100%}.editor-body{display:flex;flex-direction:column;height:auto}.sidebar-resizer{display:none}.file-tree{display:flex;gap:8px;overflow-x:auto;padding:8px}.explorer-heading{display:none}.file-group{display:flex;align-items:center;gap:4px;flex:none;margin-top:0}.file-group+.file-group{margin-top:0}.folder-name{padding:5px;font-size:13px}.folder-name small,.file-tree-note{display:none}.file-entry{width:auto;min-height:32px;padding:5px 7px;border-left:0;border-radius:4px;font-size:13px}.file-entry.active{border-left-color:transparent}.file-content{height:510px;flex:none}.source-tab{padding:0 10px}.editor-actions{flex-wrap:wrap}.button.download-project{margin-left:0}.preview-frame-wrap{height:420px}.explain-grid{grid-template-columns:1fr}.task-card{padding:20px}.example-frame{height:190px}.task-visual-head{align-items:flex-start;flex-direction:column}.takeaways{margin:65px 0;padding:24px}.takeaways h2{font-size:27px}}
 @media(max-width:700px){.code-minimap{display:none}}
-@media(max-width:700px){.workspace-head-actions{justify-content:flex-start;width:100%}.return-button{white-space:normal;text-align:left}}
+@media(max-width:700px){.return-button{white-space:normal;text-align:left}}
 @media(max-width:700px){.example-frame{height:300px}.task-visual-head{flex-wrap:wrap}}
-@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}.button,.node circle{transition:none!important}.cm-locate-line,.cm-locate-token{animation:none!important}}
+@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}.button,.node circle{transition:none!important}.cm-locate-line,.cm-locate-token,.return-button{animation:none!important}}

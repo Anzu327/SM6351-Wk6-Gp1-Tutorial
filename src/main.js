@@ -151,10 +151,7 @@ document.querySelector("#app").innerHTML = `
       <div class="workspace" id="workspace">
         <div class="workspace-head">
           <div><span class="workspace-kicker">LIVE WORKSPACE</span><h3>Read, edit, run, observe.</h3></div>
-          <div class="workspace-head-actions">
-            <button class="return-button" id="return-to-source" type="button" hidden>← Back to where I was <span lang="zh-Hant">返回剛才的位置</span></button>
-            <div class="workspace-help" role="note"><span class="workspace-help-icon" aria-hidden="true">↘</span><span><strong>Click a regional group</strong><small>to expand countries and regions · 點擊地區分組展開國家和地區</small></span></div>
-          </div>
+          <div class="workspace-help" role="note"><span class="workspace-help-icon" aria-hidden="true">↘</span><span><strong>Click a regional group</strong><small>to expand countries and regions · 點擊地區分組展開國家和地區</small></span></div>
         </div>
         <div class="workbench">
           <div class="editor-pane">
@@ -195,6 +192,7 @@ document.querySelector("#app").innerHTML = `
             </div>
             <div class="editor-actions">
               <button class="button primary" id="run-button" type="button">Run code <span>⌘/Ctrl ↵</span></button>
+              <button class="return-button" id="return-to-source" type="button" hidden>← Back to where I was <span lang="zh-Hant">返回剛才的位置</span></button>
               <button class="button ghost" id="reset-button" type="button">Reset</button>
               <button class="button ghost" id="download-button" type="button">Export .js</button>
               <button class="button download-project" id="download-project-button" type="button">Download project ZIP</button>
@@ -679,6 +677,10 @@ function focusText(token, endToken = token, originButton = null) {
   decorations.push(Decoration.mark({ class: "cm-locate-token" }).range(start, Math.min(end, start + token.length)));
   clearTimeout(locateTimer);
   document.querySelector("#workspace").scrollIntoView({ behavior: "instant", block: "start" });
+  if (originButton) {
+    const buttonBottom = returnButton.getBoundingClientRect().bottom;
+    if (buttonBottom > innerHeight - 12) window.scrollBy({ top: buttonBottom - innerHeight + 12, behavior: "instant" });
+  }
   editor.dispatch({ effects: setLocateHighlight.of(Decoration.set(decorations, true)) });
   const clearHighlight = () => editor.dispatch({ effects: setLocateHighlight.of(Decoration.none) });
   locateTimer = setTimeout(clearHighlight, 4200);

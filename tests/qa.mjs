@@ -43,12 +43,19 @@ await rowGapChip.evaluate((element) => element.blur());
 assert.equal(await layoutLesson.locator(".snippet-token.is-highlighted").count(), 0, "keyboard blur clears the highlight");
 const returnButton = page.locator("#return-to-source");
 assert.equal(await returnButton.isVisible(), false, "return button starts hidden");
+assert.equal(await returnButton.evaluate((button) => button.parentElement.classList.contains("editor-actions")), true, "return button sits below the code editor");
 for (const selector of ['[data-focus="appearance"]', '[data-task-focus="color"]', '[data-task-focus="spacing"]']) {
   const trigger = page.locator(selector);
   await trigger.scrollIntoViewIfNeeded();
   const originY = await page.evaluate(() => scrollY);
   await trigger.click();
   assert.equal(await returnButton.isVisible(), true, `${selector} makes return available`);
+  assert.equal(await returnButton.evaluate((button) => {
+    const buttonBox = button.getBoundingClientRect();
+    const editorBox = document.querySelector("#editor").getBoundingClientRect();
+    return buttonBox.top >= editorBox.bottom && buttonBox.bottom <= innerHeight;
+  }), true, "return button is visible directly below the code after a jump");
+  assert.equal(await returnButton.evaluate((button) => getComputedStyle(button).animationName), "return-breathe", "return button has breathing highlight");
   if (selector === '[data-focus="appearance"]') {
     await returnButton.focus();
     await page.keyboard.press("Enter");
@@ -489,6 +496,7 @@ await reduced.waitForFunction(() => {
 assert.ok((await reduced.locator(".cm-scroller").evaluate((element) => element.scrollTop)) < 600, "reduced motion locates the target without travel");
 const reducedReturn = reduced.locator("#return-to-source");
 assert.equal(await reducedReturn.isVisible(), true);
+assert.equal(await reducedReturn.evaluate((button) => getComputedStyle(button).animationName), "none", "reduced motion keeps the button static");
 await reducedReturn.click();
 assert.equal(await reduced.locator('[data-focus="hierarchy"]').evaluate((button) => document.activeElement === button), true, "reduced motion returns keyboard focus");
 await reduced.close();
