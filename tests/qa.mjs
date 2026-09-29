@@ -52,6 +52,10 @@ for (const button of await page.locator(".lesson .locate-button").all()) {
 }
 const frame = page.frameLocator("#preview");
 assert.equal(await frame.locator("g.node").count(), 8, "root plus seven regional groups");
+const initialGroupGap = await frame.locator("g.node").filter({ hasText: "Asia" }).evaluate((node) => {
+  const sibling = [...node.parentNode.children].find((item) => item.__data__?.data.name === "North America");
+  return Math.abs(node.__data__.x - sibling.__data__.x);
+});
 assert.equal(await frame.locator("svg").evaluate((svg) => {
   const view = svg.getBoundingClientRect();
   return [...svg.querySelectorAll("g.node")].every((node) => {
@@ -150,16 +154,22 @@ await page.keyboard.press("Home");
 assert.equal(await page.locator(".cm-scroller").evaluate((element) => element.scrollTop), 0, "Home returns the overview to the start");
 
 assert.equal(await page.locator(".task-top").allTextContents().then((items) => items.some((item) => /minutes|分鐘|分钟/i.test(item))), false, "task cards have no duration estimates");
-const sizeExample = page.frameLocator("#expected-size");
 const colorExample = page.frameLocator("#expected-color");
-await sizeExample.locator("g.node").filter({ hasText: /^China 14\.84%$/ }).waitFor();
-assert.equal(await sizeExample.locator("g.node").filter({ hasText: "Asia" }).locator("circle").getAttribute("r"), "14", "task 1 preview enlarges node circles");
-assert.equal(await sizeExample.locator("g.node").filter({ hasText: "Asia" }).locator("circle").getAttribute("fill"), "#f58321", "task 1 preview retains regional colors");
-assert.equal(await colorExample.locator("g.node").filter({ hasText: "Asia" }).locator("circle").getAttribute("r"), "14", "task 2 preview includes task 1's larger circles");
+const spacingExample = page.frameLocator("#expected-spacing");
+await colorExample.locator("g.node").filter({ hasText: /^China 14\.84%$/ }).waitFor();
+await spacingExample.locator("g.node").filter({ hasText: /^China 14\.84%$/ }).waitFor();
+assert.equal(await colorExample.locator("g.node").filter({ hasText: "Asia" }).locator("circle").getAttribute("r"), "8", "task 1 preview keeps circle size");
 assert.equal(await colorExample.locator("g.node").filter({ hasText: "Asia" }).locator("circle").getAttribute("fill"), "#355f9c", "task 2 preview makes Asia blue");
 assert.equal(await colorExample.locator("g.node").filter({ hasText: "North America" }).locator("circle").getAttribute("fill"), "#355f9c", "task 2 preview makes North America blue");
 assert.equal(await colorExample.locator("g.node").filter({ hasText: /^China 14\.84%$/ }).locator("circle").getAttribute("fill"), "#ffffff", "country stays white");
-for (const id of ["expected-size", "expected-color"]) {
+assert.equal(await spacingExample.locator("g.node").filter({ hasText: "Asia" }).locator("circle").getAttribute("fill"), "#355f9c", "task 2 includes task 1 color");
+assert.equal(await spacingExample.locator("g.node").filter({ hasText: "Asia" }).locator("circle").getAttribute("r"), "8", "task 2 keeps circle size");
+const exampleGap = async (example) => example.locator("g.node").filter({ hasText: "Asia" }).evaluate((node) => {
+  const sibling = [...node.parentNode.children].find((item) => item.__data__?.data.name === "North America");
+  return Math.abs(node.__data__.x - sibling.__data__.x);
+});
+assert.equal(await exampleGap(spacingExample), (await exampleGap(colorExample)) * 2, "task 2 doubles vertical layout gap");
+for (const id of ["expected-color", "expected-spacing"]) {
   assert.ok((await page.locator(`#${id}`).boundingBox()).height >= 350, "example frame is taller");
   assert.equal(await page.frameLocator(`#${id}`).locator("svg").evaluate((svg) => {
     const frame = svg.getBoundingClientRect();
@@ -169,7 +179,7 @@ for (const id of ["expected-size", "expected-color"]) {
     });
   }), true, "all example circles and labels fit by default");
 }
-const exampleSvg = sizeExample.locator("svg");
+const exampleSvg = spacingExample.locator("svg");
 const defaultZoom = await exampleSvg.evaluate((svg) => ({ k: svg.__zoom.k, x: svg.__zoom.x, y: svg.__zoom.y }));
 await exampleSvg.hover();
 await page.mouse.wheel(0, -320);
@@ -183,19 +193,19 @@ await page.mouse.move(exampleBox.x + exampleBox.width / 2 + 65, exampleBox.y + e
 await page.mouse.up();
 const dragged = await exampleSvg.evaluate((svg) => ({ k: svg.__zoom.k, x: svg.__zoom.x, y: svg.__zoom.y }));
 assert.ok(Math.abs(dragged.x - zoomed.x) > 30, "mouse drag pans the example");
-await page.locator('[data-reset-example="expected-size"]').click();
+await page.locator('[data-reset-example="expected-spacing"]').click();
 await page.waitForTimeout(150);
 const resetZoom = await exampleSvg.evaluate((svg) => ({ k: svg.__zoom.k, x: svg.__zoom.x, y: svg.__zoom.y }));
-assert.ok(Math.abs(resetZoom.k - defaultZoom.k) < 0.01 && Math.abs(resetZoom.x - defaultZoom.x) < 0.1, "reset view restores fit");
-const asiaCircle = sizeExample.locator("g.node").filter({ hasText: "Asia" }).locator("circle");
-const beforeDragNodes = await sizeExample.locator("g.node").count();
+assert.ok(resetZoom.k < zoomed.k && Math.abs(resetZoom.x - dragged.x) > 30, "reset view restores fit");
+const asiaCircle = spacingExample.locator("g.node").filter({ hasText: "Asia" }).locator("circle");
+const beforeDragNodes = await spacingExample.locator("g.node").count();
 const asiaBox = await asiaCircle.boundingBox();
 await page.mouse.move(asiaBox.x + asiaBox.width / 2, asiaBox.y + asiaBox.height / 2);
 await page.mouse.down();
 await page.mouse.move(asiaBox.x + asiaBox.width / 2 + 50, asiaBox.y + asiaBox.height / 2 + 30, { steps: 6 });
 await page.mouse.up();
-assert.equal(await sizeExample.locator("g.node").count(), beforeDragNodes, "dragging a node does not click it");
-assert.ok((await page.locator("#task-size .task-actions").evaluate((el) => el.getBoundingClientRect().bottom)) < (await page.locator("#task-size .task-visual").evaluate((el) => el.getBoundingClientRect().top)), "task buttons appear above the diagram");
+assert.equal(await spacingExample.locator("g.node").count(), beforeDragNodes, "dragging a node does not click it");
+assert.ok((await page.locator("#task-spacing .task-actions").evaluate((el) => el.getBoundingClientRect().bottom)) < (await page.locator("#task-spacing .task-visual").evaluate((el) => el.getBoundingClientRect().top)), "task buttons appear above the diagram");
 
 await page.locator(".cm-scroller").evaluate((element) => {
   element.scrollTop = element.scrollHeight;
@@ -216,7 +226,7 @@ const finalScroll = scrollSamples.at(-1);
 assert.ok(firstScroll > finalScroll + 300, "Locate travels a meaningful distance from the current editor position");
 assert.ok(scrollSamples.some((value) => value < firstScroll - 100 && value > finalScroll + 100), "editor passes through intermediate scroll positions");
 
-await page.locator('[data-task-focus="size"]').click();
+await page.locator('[data-task-focus="color"]').click();
 await page.locator(".cm-locate-token").waitFor();
 await page.waitForFunction(() => {
   const token = document.querySelector(".cm-locate-token")?.getBoundingClientRect();
@@ -227,6 +237,10 @@ assert.equal(await page.locator(".cm-locate-line").count() > 0, true, "jump high
 const locateBox = await page.locator(".cm-locate-token").boundingBox();
 const editorBox = await page.locator("#editor").boundingBox();
 assert.ok(locateBox && editorBox && locateBox.y >= editorBox.y && locateBox.y < editorBox.y + editorBox.height, "highlight is visible after the animated jump");
+assert.match(await page.locator(".cm-locate-line").first().innerText(), /TASK 1 START: give all regional groups one shared color/, "task 1 jump reaches color rule");
+await page.locator('[data-task-focus="spacing"]').click();
+await page.locator(".cm-locate-token").waitFor();
+assert.match(await page.locator(".cm-locate-line").first().innerText(), /TASK 2 START: increase the up-and-down gap/, "task 2 jump reaches layout exercise");
 await page.locator('[data-focus="layout"]').click();
 await page.locator(".cm-locate-token").waitFor();
 await page.waitForFunction(() => {
@@ -275,18 +289,21 @@ async function readSavedDraft() {
   await page.waitForFunction(() => document.querySelector("#save-status")?.textContent === "Saved in this browser");
   return page.evaluate(() => localStorage.getItem("group5-tree-lab:draft:v2"));
 }
-const baseSize = 'node.append("circle").attr("r", 8);';
-const manualSize = 'node.append("circle").attr("r", 14);';
-assert.ok(source.includes(baseSize));
+const baseColor = 'if (d.depth === 1) return d.data.color;';
+const manualColor = 'if (d.depth === 1) return "#355f9c";';
+const spacingPlaceholder = '  // Type one line here, using the layout above as a guide.';
+const manualSpacing = '  layout.nodeSize([rowGap * 2, columnGap]);';
+assert.ok(source.includes(baseColor));
+assert.ok(source.includes(spacingPlaceholder));
 const minimapBeforeEdit = await minimap.locator("canvas").evaluate((element) => element.toDataURL());
-await editor.fill(source.replace(baseSize, manualSize));
+await editor.fill(source.replace(baseColor, manualColor));
 await page.waitForFunction((previous) => document.querySelector("#code-minimap canvas")?.toDataURL() !== previous, minimapBeforeEdit);
 assert.equal((await minimap.getAttribute("aria-valuetext")).includes(`of ${source.split("\n").length}`), true, "overview keeps the full source position after editing");
 await page.getByRole("button", { name: "Run code" }).click();
 await page.getByText("Preview ready", { exact: false }).waitFor();
 await page.locator('[data-file="html"]').click();
 await page.locator('[data-file="js"]').click();
-assert.ok((await readSavedDraft()).includes(manualSize), "JS draft survives file switching");
+assert.ok((await readSavedDraft()).includes(manualColor), "JS draft survives file switching");
 const exportDir = await mkdtemp(join(tmpdir(), "group5-export-"));
 try {
   const downloadEvent = page.waitForEvent("download");
@@ -296,7 +313,7 @@ try {
   await download.saveAs(zipPath);
   await runFile("unzip", ["-q", zipPath, "-d", exportDir]);
   const exportedJs = await readFile(join(exportDir, "project", "collapsibleTree.js"), "utf8");
-  assert.ok(exportedJs.includes(manualSize), "ZIP includes current student code");
+  assert.ok(exportedJs.includes(manualColor), "ZIP includes current student code");
   assert.match(await readFile(join(exportDir, "project", "index.html"), "utf8"), /\.\.\/vendor\/d3\.min\.js/);
   assert.match(await readFile(join(exportDir, "project", "styles.css"), "utf8"), /\.node\.expandable/);
   const exportedJson = await readFile(join(exportDir, "data", "globalEconomyByGDP.json"), "utf8");
@@ -310,7 +327,7 @@ try {
   await offline.route(/^https?:/, (route) => route.abort());
   await offline.goto(`file://${join(exportDir, "project", "index.html")}`);
   assert.equal(await offline.locator("g.node").count(), 8, "offline file opens without server");
-  assert.equal(await offline.locator("g.node").filter({ hasText: "Asia" }).locator("circle").getAttribute("r"), "14", "offline export keeps edited circle size");
+  assert.equal(await offline.locator("g.node").filter({ hasText: "Asia" }).locator("circle").getAttribute("fill"), "#355f9c", "offline export keeps edited group color");
   await offline.locator("g.node").filter({ hasText: "Asia" }).locator("circle").click();
   assert.equal(await offline.locator("g.node").count(), 24, "offline tree expands");
   assert.equal(await offline.locator("g.node").filter({ hasText: "Hong Kong SAR, China" }).count(), 1, "offline export uses clarified label");
@@ -321,34 +338,57 @@ try {
 } finally {
   await rm(exportDir, { recursive: true, force: true });
 }
-assert.equal(await page.locator('[data-reveal="size"]').isEnabled(), true, "manual size attempt unlocks answer");
-assert.equal(await page.locator('[data-reveal="color"]').isEnabled(), false, "other answer remains locked");
-assert.equal(await page.frameLocator("#preview").locator("g.node").filter({ hasText: "Asia" }).locator("circle").getAttribute("r"), "14");
-
-await page.locator('[data-reveal="size"]').click();
-await page.locator('[data-insert="size"]').click();
-await page.getByText("Preview ready", { exact: false }).waitFor();
-assert.equal(await page.frameLocator("#preview").locator("g.node").filter({ hasText: "Asia" }).locator("circle").getAttribute("r"), "14");
-
-const afterSpacing = await readSavedDraft();
-const baseColor = 'if (d.depth === 1) return d.data.color;';
-const manualColor = 'if (d.depth === 1) return "#355f9c";';
-assert.ok(afterSpacing.includes(baseColor));
-await editor.fill(afterSpacing.replace(baseColor, manualColor));
-await page.getByRole("button", { name: "Run code" }).click();
-await page.getByText("Preview ready", { exact: false }).waitFor();
-assert.equal(await page.locator('[data-reveal="color"]').isEnabled(), true);
+assert.equal(await page.locator('[data-reveal="color"]').isEnabled(), true, "manual color attempt unlocks answer");
+assert.equal(await page.locator('[data-reveal="spacing"]').isEnabled(), false, "other answer remains locked");
 assert.equal(await page.frameLocator("#preview").locator("g.node").filter({ hasText: "Asia" }).locator("circle").getAttribute("fill"), "#355f9c");
-assert.equal(await page.frameLocator("#preview").locator("g.node").filter({ hasText: "North America" }).locator("circle").getAttribute("fill"), "#355f9c");
-await page.frameLocator("#preview").locator("g.node").filter({ hasText: "Asia" }).locator("circle").click();
-assert.equal(await page.frameLocator("#preview").locator("g.node").filter({ hasText: /^China 14\.84%$/ }).locator("circle").getAttribute("fill"), "#ffffff");
 
 await page.locator('[data-reveal="color"]').click();
 await page.locator('[data-insert="color"]').click();
 await page.getByText("Preview ready", { exact: false }).waitFor();
+assert.equal(await page.frameLocator("#preview").locator("g.node").filter({ hasText: "Asia" }).locator("circle").getAttribute("fill"), "#355f9c");
+
+const afterColor = await readSavedDraft();
+await editor.fill(afterColor.replace(spacingPlaceholder, manualSpacing));
+await page.getByRole("button", { name: "Run code" }).click();
+await page.getByText("Preview ready", { exact: false }).waitFor();
+assert.equal(await page.locator('[data-reveal="spacing"]').isEnabled(), true);
+assert.equal(await page.frameLocator("#preview").locator("g.node").filter({ hasText: "Asia" }).locator("circle").getAttribute("fill"), "#355f9c");
+assert.equal(await page.frameLocator("#preview").locator("g.node").filter({ hasText: "North America" }).locator("circle").getAttribute("fill"), "#355f9c");
+assert.equal(await page.frameLocator("#preview").locator("g.node").filter({ hasText: "Asia" }).locator("circle").getAttribute("r"), "8");
+assert.equal(await page.frameLocator("#preview").locator("g.node").filter({ hasText: "Asia" }).evaluate((node) => {
+  const sibling = [...node.parentNode.children].find((item) => item.__data__?.data.name === "North America");
+  return Math.abs(node.__data__.x - sibling.__data__.x);
+}), initialGroupGap * 2, "manual spacing code doubles the vertical gap");
+await page.frameLocator("#preview").locator("g.node").filter({ hasText: "Asia" }).locator("circle").click();
+assert.equal(await page.frameLocator("#preview").locator("g.node").filter({ hasText: /^China 14\.84%$/ }).locator("circle").getAttribute("fill"), "#ffffff");
+
+await page.locator('[data-reveal="spacing"]').click();
+await page.locator('[data-insert="spacing"]').click();
+await page.getByText("Preview ready", { exact: false }).waitFor();
 const afterBoth = await readSavedDraft();
-assert.ok(afterBoth.includes(manualSize), "task 1 survives task 2 insertion");
-assert.ok(afterBoth.includes(manualColor), "task 2 solution inserted");
+assert.ok(afterBoth.includes(manualColor), "task 1 survives task 2 insertion");
+assert.ok(afterBoth.includes(manualSpacing), "task 2 solution inserted");
+const spacingDownloadEvent = page.waitForEvent("download");
+await page.getByRole("button", { name: "Download project ZIP" }).click();
+const spacingDownload = await spacingDownloadEvent;
+const spacingExportDir = await mkdtemp(join(tmpdir(), "group5-spacing-export-"));
+try {
+  await spacingDownload.saveAs(join(spacingExportDir, "project.zip"));
+  await runFile("unzip", ["-q", join(spacingExportDir, "project.zip"), "-d", spacingExportDir]);
+  const exportedCode = await readFile(join(spacingExportDir, "project", "collapsibleTree.js"), "utf8");
+  assert.ok(exportedCode.includes(manualColor) && exportedCode.includes(manualSpacing), "offline ZIP keeps both task edits");
+  const offline = await browser.newPage();
+  await offline.route(/^https?:/, (route) => route.abort());
+  await offline.goto(`file://${join(spacingExportDir, "project", "index.html")}`);
+  assert.equal(await offline.locator("g.node").filter({ hasText: "Asia" }).locator("circle").getAttribute("fill"), "#355f9c");
+  assert.equal(await offline.locator("g.node").filter({ hasText: "Asia" }).evaluate((node) => {
+    const sibling = [...node.parentNode.children].find((item) => item.__data__?.data.name === "North America");
+    return Math.abs(node.__data__.x - sibling.__data__.x);
+  }), initialGroupGap * 2, "offline export runs typed layout code");
+  await offline.close();
+} finally {
+  await rm(spacingExportDir, { recursive: true, force: true });
+}
 
 await editor.fill(source + "\nthrow new Error('Expected QA error');");
 await page.getByRole("button", { name: "Run code" }).click();
@@ -360,7 +400,7 @@ page.once("dialog", (dialog) => dialog.accept());
 await page.getByRole("button", { name: "Reset", exact: true }).click();
 await page.getByText("Preview ready", { exact: false }).waitFor();
 assert.equal(await page.locator('[data-reveal="color"]').isEnabled(), false, "reset locks answer again");
-assert.equal(await page.locator('[data-reveal="size"]').isEnabled(), false);
+assert.equal(await page.locator('[data-reveal="spacing"]').isEnabled(), false);
 assert.equal(await page.frameLocator("#preview").locator("g.node").filter({ hasText: "Asia" }).locator("circle").getAttribute("r"), "8", "reset restores original circle size");
 assert.equal(await page.frameLocator("#preview").locator("g.node").filter({ hasText: "Asia" }).locator("circle").getAttribute("fill"), "#f58321", "reset restores original continent color");
 assert.equal(await page.evaluate(() => localStorage.getItem("group5-tree-lab:draft:v2")), null, "reset clears browser draft");
@@ -399,14 +439,18 @@ const clarifiedLine = 'const name = d.depth === 0 ? "World" : d.data.code === "H
 const oldLine = '.text((d) => d.depth === 0 ? "World" : d.data.name)';
 assert.ok(source.includes(clarifiedLine));
 const oldTaskBlock = '  // TASK 1 START: make the horizontal gap four times the row gap.\n  const columnGap = rowGap * 4;\n  // TASK 1 END';
-const newTaskBlock = '        // TASK 1 START: make every node circle larger.\n        node.append("circle").attr("r", 8);\n        // TASK 1 END';
+const spacingBlock = '  // TASK 2 START: increase the up-and-down gap between nodes.\n  // Type one line here, using the layout above as a guide.\n  // TASK 2 END';
+const newColorBlock = '    // TASK 1 START: give all regional groups one shared color.\n    const nodeFill = (d) => {\n      if (d.depth === 0) return "#18345b";\n      if (d.depth === 1) return d.data.color;\n      return "#ffffff";\n    };\n    // TASK 1 END';
+const oldestColorBlock = newColorBlock
+  .replace("// TASK 1 START: give all regional groups one shared color.", "// TASK 2 START: read each regional group's color from its data.")
+  .replace('return d.data.color;', 'return "#355f9c";')
+  .replace("// TASK 1 END", "// TASK 2 END");
 await legacy.addInitScript(({ key, draft }) => localStorage.setItem(key, draft), {
   key: "group5-tree-lab:draft:v2",
   draft: "// Learner note\n" + source
-    .replace(newTaskBlock, '        node.append("circle").attr("r", 8);')
+    .replace(spacingBlock + "\n", "")
     .replace("  const columnGap = 245;", oldTaskBlock)
-    .replace("// TASK 2 START: give all regional groups one shared color.", "// TASK 2 START: read each regional group's color from its data.")
-    .replace('if (d.depth === 1) return d.data.color;', 'if (d.depth === 1) return "#355f9c";')
+    .replace(newColorBlock, oldestColorBlock)
     .replace(/\.sum\(\(d\) => d\.weight \|\| 0\)/, "")
     .replace(/\.text\(\(d\) => \{[\s\S]*?\n      \}\)/, oldLine),
 });
@@ -414,14 +458,37 @@ await legacy.goto(baseUrl, { waitUntil: "networkidle" });
 await legacy.getByText("Preview ready", { exact: false }).waitFor();
 assert.ok((await legacy.locator(".cm-content").innerText()).includes("// Learner note"), "existing student draft is retained");
 assert.ok((await legacy.locator(".cm-content").innerText()).includes("const columnGap = rowGap * 4;"), "old Task 1 edit is preserved");
-await legacy.locator('[data-task-focus="size"]').click();
-assert.match(await legacy.locator(".cm-locate-line").first().innerText(), /TASK 1 START: make every node circle larger/, "old draft gets the new Task 1 marker");
+await legacy.locator('[data-task-focus="color"]').click();
+assert.match(await legacy.locator(".cm-locate-line").first().innerText(), /TASK 1 START: give all regional groups one shared color/, "old draft gets the new Task 1 marker");
+await legacy.locator('[data-task-focus="spacing"]').click();
+assert.match(await legacy.locator(".cm-locate-line").first().innerText(), /TASK 2 START: increase the up-and-down gap/, "old draft gets the new Task 2 marker");
 assert.match(await legacy.frameLocator("#preview").locator("g.node").filter({ hasText: "Asia" }).getAttribute("transform"), /^translate\(176,/, "old spacing edit still runs");
 assert.equal(await legacy.frameLocator("#preview").locator("g.node").filter({ hasText: "Asia" }).locator("circle").getAttribute("fill"), "#f58321", "old fixed-blue draft receives data colors");
 await legacy.frameLocator("#preview").locator("g.node").filter({ hasText: "Asia" }).locator("circle").click();
 assert.equal(await legacy.frameLocator("#preview").locator("g.node").filter({ hasText: "Hong Kong SAR, China" }).count(), 1, "older draft gets the clarified label");
 assert.equal(await legacy.frameLocator("#preview").locator("g.node").filter({ hasText: "Asia" }).locator("text").textContent(), "Asia 33.84% (16)", "older draft gets GDP shares");
 await legacy.close();
+
+const previousDraft = await browser.newPage();
+const oldCircleBlock = '        // TASK 1 START: make every node circle larger.\n        node.append("circle").attr("r", 14);\n        // TASK 1 END';
+const oldColorBlock = newColorBlock
+  .replace("// TASK 1 START: give all regional groups one shared color.", "// TASK 2 START: give all regional groups one shared color.")
+  .replace('return d.data.color;', 'return "#355f9c";')
+  .replace("// TASK 1 END", "// TASK 2 END");
+await previousDraft.addInitScript(({ key, draft }) => localStorage.setItem(key, draft), {
+  key: "group5-tree-lab:draft:v2",
+  draft: source
+    .replace(spacingBlock + "\n", "")
+    .replace('        node.append("circle").attr("r", 8);', oldCircleBlock)
+    .replace(newColorBlock, oldColorBlock),
+});
+await previousDraft.goto(baseUrl, { waitUntil: "networkidle" });
+await previousDraft.getByText("Preview ready", { exact: false }).waitFor();
+await previousDraft.locator('[data-task-focus="spacing"]').click();
+assert.match(await previousDraft.locator(".cm-locate-line").first().innerText(), /TASK 2 START: increase the up-and-down gap/, "new spacing task appears in the old draft");
+assert.equal(await previousDraft.frameLocator("#preview").locator("g.node").filter({ hasText: "Asia" }).locator("circle").getAttribute("r"), "14");
+assert.equal(await previousDraft.frameLocator("#preview").locator("g.node").filter({ hasText: "Asia" }).locator("circle").getAttribute("fill"), "#355f9c");
+await previousDraft.close();
 
 assert.deepEqual(errors, [], "parent page has no uncaught JavaScript errors");
 await browser.close();

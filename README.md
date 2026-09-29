@@ -45,7 +45,7 @@ To publish later changes, push to `main` and wait for the **Deploy classroom lab
 
 The file list shows the three main project files under `project/` and the GDP JSON under `data/`. Only `collapsibleTree.js` is editable. The editor saves its draft only in the current browser's local storage. **Export .js** downloads the edited script; **Download project ZIP** includes that script, the displayed standalone HTML/CSS, the source JSON, an offline data loader generated from the JSON, and a local D3 bundle. Unzip it and open `project/index.html` directly, even offline. Neither download overwrites `Visualizations/collapsibleTree.js`. Reset clears the draft. Each answer button unlocks only after its task region was manually changed and Run was pressed.
 
-The editor's left rail can collapse the file explorer or focus on code by hiding the preview. The hint above the preview points students to the clickable regional group circles. Groups start with the different colors stored in the data; Task 2 changes them to one shared blue.
+The editor's left rail can collapse the file explorer or focus on code by hiding the preview. The hint above the preview points students to the clickable regional group circles. Groups start with the different colors stored in the data; Task 1 changes them to one shared blue. Task 2 adds one layout line to double the vertical gap between nodes.
 
 To run browser checks, start `npm run dev` in one terminal and then `npm test` in another. The check captures a temporary workspace screenshot at `/private/tmp/group5-lab-workspace.png`.
 

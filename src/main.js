@@ -14,20 +14,20 @@ import "./styles.css";
 const draftKey = "group5-tree-lab:draft:v2";
 const vendorD3Url = new URL(`${import.meta.env.BASE_URL}vendor/d3.min.js`, location.href).href;
 const taskMarkers = {
-  size: ["// TASK 1 START", "// TASK 1 END"],
-  color: ["// TASK 2 START", "// TASK 2 END"],
+  color: ["// TASK 1 START", "// TASK 1 END"],
+  spacing: ["// TASK 2 START", "// TASK 2 END"],
 };
 const taskSolutions = {
-  size: `        // TASK 1 START: make every node circle larger.
-        node.append("circle").attr("r", 14);
-        // TASK 1 END`,
-  color: `    // TASK 2 START: give all regional groups one shared color.
+  color: `    // TASK 1 START: give all regional groups one shared color.
     const nodeFill = (d) => {
       if (d.depth === 0) return "#18345b";
       if (d.depth === 1) return "#355f9c";
       return "#ffffff";
     };
-    // TASK 2 END`,
+    // TASK 1 END`,
+  spacing: `  // TASK 2 START: increase the up-and-down gap between nodes.
+  layout.nodeSize([rowGap * 2, columnGap]);
+  // TASK 2 END`,
 };
 // Keep every displayed excerpt tied to the editable source, including indentation.
 function sourceExcerpt(start, end = start) {
@@ -82,10 +82,10 @@ const lessonData = [
       ["return", "Gives back the color to use.", "交回要使用的顏色。"],
       ["d.data.color", "The color saved for this group in the GDP data.", "GDP 資料中為這個分組儲存的顏色。"],
     ],
-    what: "The middle rule reads each group's own color from the data. Task 2 replaces it with one fixed blue for all groups.",
-    whatZh: "中間的一行讀取各分組資料中的顏色。練習 2 會把它改成所有分組共用的固定藍色。",
-    see: "Asia is orange and North America is red now. After Task 2, both group circles are blue; entries stay white.",
-    seeZh: "現在 Asia 是橙色、North America 是紅色；練習後兩個分組圓點都變藍色，組內項目仍是白色。",
+    what: "The middle rule reads each group's own color from the data. Task 1 replaces it with one fixed blue for all groups.",
+    whatZh: "中間的一行讀取各分組資料中的顏色。練習 1 會把它改成所有分組共用的固定藍色。",
+    see: "Asia is orange and North America is red now. After Task 1, both group circles are blue; entries stay white.",
+    seeZh: "現在 Asia 是橙色、North America 是紅色；練習 1 後兩個分組圓點都變藍色，組內項目仍是白色。",
   },
   {
     id: "collapse", number: "04", title: "Open or close a group",
@@ -233,35 +233,35 @@ document.querySelector("#app").innerHTML = `
     </section>
 
     <section id="practice" class="section practice">
-      <div class="section-heading"><span class="section-index">03 / LIVE MODIFICATIONS</span><h2>Change one line. See what happens.</h2><p>Find the line, make the small change, and press Run code. Try it once to unlock the answer.</p></div>
+      <div class="section-heading"><span class="section-index">03 / LIVE MODIFICATIONS</span><h2>Change one line. See what happens.</h2><p>Find the code, make the small change, and press Run code. Try it once to unlock the answer.</p></div>
       <div class="task-grid">
-        <article class="task-card" id="task-size">
-          <div class="task-top"><span class="task-number">TASK 01</span></div>
-          <h3>Make the node circles larger</h3>
-          <p class="task-goal"><strong>Goal</strong> Make every node circle noticeably larger.<span class="zh-translation" lang="zh-Hant">把所有節點的圓點明顯放大。</span></p>
-          <ol class="task-steps">
-            <li><strong>Find.</strong> Jump to <code>TASK 1</code> and find <code>node.append("circle").attr("r", 8);</code>.<span class="zh-translation" lang="zh-Hant">跳到 <code>TASK 1</code>，找到圓點半徑設為 <code>8</code> 的那行。</span></li>
-            <li><strong>Change.</strong> Replace <code>8</code> with <code>14</code>. <code>r</code> means radius.<span class="zh-translation" lang="zh-Hant">把 <code>8</code> 改成 <code>14</code>；<code>r</code> 表示半徑。</span></li>
-            <li><strong>Check.</strong> Run the code and open Asia. Every circle should be larger.<span class="zh-translation" lang="zh-Hant">執行程式並展開 Asia；所有圓點都應變大。</span></li>
-          </ol>
-          <div class="task-actions"><button type="button" class="button task-jump" data-task-focus="size">Jump to TASK 1 code <span aria-hidden="true">↗</span></button><button type="button" class="button text-button" data-hint="size">Show hint</button></div>
-          <p class="hint" id="hint-size" hidden>Write <code>node.append("circle").attr("r", 14);</code>.</p>
-          <div class="task-visual"><div class="task-visual-head"><strong>Expected visual result</strong><span>Larger node circles</span><button type="button" class="reset-example" data-reset-example="expected-size">Reset view</button></div><iframe id="expected-size" class="example-frame" title="Example of tree with larger node circles" sandbox="allow-scripts"></iframe><p>Every circle has a larger radius. Scroll to zoom; drag to move the diagram.</p></div>
-          <div class="answer-area"><button type="button" class="answer-toggle" data-reveal="size" disabled>Try editing and run once to unlock the answer</button><div id="answer-size" class="answer-content" hidden><pre><code>${escapeHtml(taskSolutions.size)}</code></pre><button type="button" class="button secondary" data-insert="size">Insert this task's code</button></div></div>
-        </article>
         <article class="task-card" id="task-color">
-          <div class="task-top"><span class="task-number">TASK 02</span></div>
+          <div class="task-top"><span class="task-number">TASK 01</span></div>
           <h3>Give regional groups one color</h3>
           <p class="task-goal"><strong>Goal</strong> Make all regional group circles the same blue.<span class="zh-translation" lang="zh-Hant">讓所有地區分組的圓點使用同一種藍色。</span></p>
           <ol class="task-steps">
-            <li><strong>Find.</strong> Jump to <code>TASK 2</code> and find <code>d.data.color</code>.<span class="zh-translation" lang="zh-Hant">跳到 <code>TASK 2</code>，找到 <code>d.data.color</code>。</span></li>
+            <li><strong>Find.</strong> Jump to <code>TASK 1</code> and find <code>d.data.color</code>.<span class="zh-translation" lang="zh-Hant">跳到 <code>TASK 1</code>，找到 <code>d.data.color</code>。</span></li>
             <li><strong>Change.</strong> Replace <code>d.data.color</code> with <code>"#355f9c"</code>, including the quotation marks.<span class="zh-translation" lang="zh-Hant">把 <code>d.data.color</code> 改成 <code>"#355f9c"</code>，記得保留引號。</span></li>
             <li><strong>Check.</strong> Run the code. Asia and North America should both be blue; entries stay white.<span class="zh-translation" lang="zh-Hant">執行後，Asia 和 North America 都應變成藍色；組內項目仍是白色。</span></li>
           </ol>
-          <div class="task-actions"><button type="button" class="button task-jump" data-task-focus="color">Jump to TASK 2 code <span aria-hidden="true">↗</span></button><button type="button" class="button text-button" data-hint="color">Show hint</button></div>
+          <div class="task-actions"><button type="button" class="button task-jump" data-task-focus="color">Jump to TASK 1 code <span aria-hidden="true">↗</span></button><button type="button" class="button text-button" data-hint="color">Show hint</button></div>
           <p class="hint" id="hint-color" hidden>Use <code>if (d.depth === 1) return "#355f9c";</code>. The quotes make this a fixed color value.</p>
           <div class="task-visual"><div class="task-visual-head"><strong>Expected visual result</strong><span>One shared group color</span><button type="button" class="reset-example" data-reset-example="expected-color">Reset view</button></div><iframe id="expected-color" class="example-frame" title="Example of groups sharing one blue color" sandbox="allow-scripts"></iframe><p>Asia and North America are both blue. Scroll to zoom; drag to move the diagram.</p></div>
           <div class="answer-area"><button type="button" class="answer-toggle" data-reveal="color" disabled>Try editing and run once to unlock the answer</button><div id="answer-color" class="answer-content" hidden><pre><code>${escapeHtml(taskSolutions.color)}</code></pre><button type="button" class="button secondary" data-insert="color">Insert this task's code</button></div></div>
+        </article>
+        <article class="task-card" id="task-spacing">
+          <div class="task-top"><span class="task-number">TASK 02</span></div>
+          <h3>Give the nodes more vertical space</h3>
+          <p class="task-goal"><strong>Goal</strong> Type one line to double the up-and-down gap between nodes.<span class="zh-translation" lang="zh-Hant">輸入一行程式碼，讓節點之間的上下距離加倍。</span></p>
+          <ol class="task-steps">
+            <li><strong>Find.</strong> Jump to <code>TASK 2</code> below <code>const layout = d3.tree().nodeSize([rowGap, columnGap]);</code>.<span class="zh-translation" lang="zh-Hant">跳到 <code>TASK 2</code>，位置就在樹圖布局程式碼下方。</span></li>
+            <li><strong>Type.</strong> Add <code>layout.nodeSize([rowGap * 2, columnGap]);</code> between the task markers. <code>* 2</code> doubles the vertical gap.<span class="zh-translation" lang="zh-Hant">在任務標記之間輸入這一行；<code>* 2</code> 會把上下距離加倍。</span></li>
+            <li><strong>Check.</strong> Run the code and compare the vertical spacing. The circles stay the same size.<span class="zh-translation" lang="zh-Hant">執行後比較節點的上下距離；圓點大小維持不變。</span></li>
+          </ol>
+          <div class="task-actions"><button type="button" class="button task-jump" data-task-focus="spacing">Jump to TASK 2 code <span aria-hidden="true">↗</span></button><button type="button" class="button text-button" data-hint="spacing">Show hint</button></div>
+          <p class="hint" id="hint-spacing" hidden>Copy the <code>nodeSize</code> idea from the layout line above. Start with <code>layout.nodeSize</code>.</p>
+          <div class="task-visual"><div class="task-visual-head"><strong>Expected visual result</strong><span>More vertical space</span><button type="button" class="reset-example" data-reset-example="expected-spacing">Reset view</button></div><iframe id="expected-spacing" class="example-frame" title="Example of tree with larger vertical gaps" sandbox="allow-scripts"></iframe><p>The nodes are farther apart vertically, and the regional groups remain blue. Scroll to zoom; drag to move the diagram.</p></div>
+          <div class="answer-area"><button type="button" class="answer-toggle" data-reveal="spacing" disabled>Try editing and run once to unlock the answer</button><div id="answer-spacing" class="answer-content" hidden><pre><code>${escapeHtml(taskSolutions.spacing)}</code></pre><button type="button" class="button secondary" data-insert="spacing">Insert this task's code</button></div></div>
         </article>
       </div>
     </section>
@@ -337,15 +337,11 @@ if (savedDraft.includes(clarifiedLabelLine)) savedDraft = savedDraft.replace(cla
 if (savedDraft.includes("const root = d3.hierarchy(data);")) {
   savedDraft = savedDraft.replace("const root = d3.hierarchy(data);", "const root = d3.hierarchy(data).sum((d) => d.weight || 0);");
 }
-// Keep older edits (including an edited columnGap) while moving TASK 1 to circle size.
+// Keep student edits while moving the old tasks to their new locations.
 if (savedDraft.includes("// TASK 1 START: make the horizontal gap four times the row gap.")) {
   savedDraft = savedDraft.replace(
     /^[ \t]*\/\/ TASK 1 START: make the horizontal gap four times the row gap\.\r?\n([\s\S]*?)\r?\n[ \t]*\/\/ TASK 1 END/m,
     (_match, existingCode) => existingCode,
-  );
-  savedDraft = savedDraft.replace(
-    /^([ \t]*)(node\.append\("circle"\)\.attr\("r",[^;\n]+\);)/m,
-    (_match, indent, line) => `${indent}// TASK 1 START: make every node circle larger.\n${indent}${line}\n${indent}// TASK 1 END`,
   );
 }
 // Older drafts began with fixed blue; update only that unchanged rule.
@@ -356,6 +352,22 @@ if (savedDraft.includes("// TASK 2 START: read each regional group's color from 
   ).replace(
     'if (d.depth === 1) return "#355f9c";',
     "if (d.depth === 1) return d.data.color;",
+  );
+}
+savedDraft = savedDraft.replace(
+  /^[ \t]*\/\/ TASK 1 START: make every node circle larger\.\r?\n([\s\S]*?)\r?\n[ \t]*\/\/ TASK 1 END/m,
+  (_match, existingCode) => existingCode,
+);
+if (savedDraft.includes("// TASK 2 START: give all regional groups one shared color.")) {
+  savedDraft = savedDraft.replace(
+    "// TASK 2 START: give all regional groups one shared color.",
+    "// TASK 1 START: give all regional groups one shared color.",
+  ).replace("// TASK 2 END", "// TASK 1 END");
+}
+if (savedDraft && !savedDraft.includes("// TASK 2 START: increase the up-and-down gap between nodes.")) {
+  savedDraft = savedDraft.replace(
+    /^(\s*const layout = d3\.tree\(\)\.nodeSize\([^\n]+\);)\r?$/m,
+    "$1\n  // TASK 2 START: increase the up-and-down gap between nodes.\n  // Type one line here, using the layout above as a guide.\n  // TASK 2 END",
   );
 }
 let saveTimer;
@@ -699,7 +711,7 @@ function clearError() {
   box.textContent = "";
 }
 
-const attempted = { size: false, color: false };
+const attempted = { color: false, spacing: false };
 let currentFrame;
 let runCount = 0;
 function previewDocument(compact = false) {
@@ -808,9 +820,9 @@ function mountExpectedPreviews() {
       { ...data.children[1], children: data.children[1].children.slice(0, 2) },
     ],
   };
-  const sizeCode = sourceCode.replace(region(sourceCode, "size"), taskSolutions.size);
-  const colorCode = sizeCode.replace(region(sizeCode, "color"), taskSolutions.color);
-  for (const [id, code] of [["expected-size", sizeCode], ["expected-color", colorCode]]) {
+  const colorCode = sourceCode.replace(region(sourceCode, "color"), taskSolutions.color);
+  const spacingCode = colorCode.replace(region(colorCode, "spacing"), taskSolutions.spacing);
+  for (const [id, code] of [["expected-color", colorCode], ["expected-spacing", spacingCode]]) {
     const frame = document.querySelector(`#${id}`);
     frame.srcdoc = previewDocument(true);
     frame.addEventListener("load", () => {

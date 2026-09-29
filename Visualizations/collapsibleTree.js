@@ -30,6 +30,9 @@ function renderTree({ d3, data, container }) {
 
   // KEY 2: The tree layout computes x/y coordinates for visible nodes.
   const layout = d3.tree().nodeSize([rowGap, columnGap]);
+  // TASK 2 START: increase the up-and-down gap between nodes.
+  // Type one line here, using the layout above as a guide.
+  // TASK 2 END
   const drawLink = d3.linkHorizontal()
     .x((d) => d.y)
     .y((d) => d.x);
@@ -56,9 +59,7 @@ function renderTree({ d3, data, container }) {
       .data(visibleNodes, (d) => d.ancestors().map((a) => a.data.name).reverse().join("/"))
       .join((enter) => {
         const node = enter.append("g").attr("class", "node");
-        // TASK 1 START: make every node circle larger.
         node.append("circle").attr("r", 8);
-        // TASK 1 END
         node.append("text").attr("x", 16).attr("dy", "0.32em");
         return node;
       })
@@ -77,13 +78,13 @@ function renderTree({ d3, data, container }) {
         update();
       });
 
-    // TASK 2 START: give all regional groups one shared color.
+    // TASK 1 START: give all regional groups one shared color.
     const nodeFill = (d) => {
       if (d.depth === 0) return "#18345b";
       if (d.depth === 1) return d.data.color;
       return "#ffffff";
     };
-    // TASK 2 END
+    // TASK 1 END
     nodes.select("circle").attr("fill", nodeFill);
     nodes.select("text")
       .text((d) => {
