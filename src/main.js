@@ -112,7 +112,7 @@ document.querySelector("#app").innerHTML = `
   <a class="skip-link" href="#main">Skip to content</a>
   <header class="hero">
     <div class="shell hero-inner">
-      <div class="hero-top"><span>Information Visualization · Group 5</span><span>Interactive code walkthrough</span></div>
+      <div class="hero-top"><span>SM6351 · Wk6 Gp1 Tutorial</span><span>Interactive code walkthrough</span></div>
       <div class="hero-copy">
         <div>
           <h1>Collapsible<br><em>Node-Link Tree</em></h1>
@@ -268,7 +268,7 @@ document.querySelector("#app").innerHTML = `
 
     <section id="takeaways" class="section takeaways"><span class="section-index">04 / TAKEAWAYS</span><h2>Data → position → draw → click.</h2><p>When you click a group, the tree shows or hides its entries and draws the visible result again.</p><p class="source-note">Source: <a href="https://gist.github.com/Kcnarf/fa95aa7b076f537c00aed614c29bb568" target="_blank" rel="noreferrer">Global Economy by GDP Gist</a> · <a href="https://d3js.org/d3-hierarchy/hierarchy" target="_blank" rel="noreferrer">D3 hierarchy reference</a> · <a href="https://d3js.org/d3-hierarchy/tree" target="_blank" rel="noreferrer">D3 tree reference</a></p></section>
   </main>
-  <footer class="footer"><div class="shell">Group 5 · Information Visualization · Historical dataset: January 2017</div></footer>
+  <footer class="footer"><div class="shell">SM6351 · Wk6 Gp1 Tutorial · Historical dataset: January 2017</div></footer>
 `;
 
 // Connect explained code terms to the same terms in each source excerpt.
